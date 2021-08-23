@@ -1,0 +1,392 @@
+---
+title: "Using multiple outcomes in intervention studies to increase statistical power: the Adjust NVar approach"
+author: "D. V. M. Bishop"
+date: "22/08/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Abstract
+
+The CONSORT guidelines for clinical trials recommend that the researcher should specify a single primary outcome, to guard against the raised risk of false positive findings when multiple measures are considered. However, it is possible to include multiple outcomes in an intervention study, while controlling the false positive rate, provided the criterion for rejecting the null hypothesis specifies that N or more of the outcomes reach an agreed level of statistical significance, where N depends on the total number of outcome measures included in the study, and the correlation between them. Simulations are presented that explore the situation when between 2 and 12 outcome measures are included in a study, with the average correlation between measures ranging from zero to .8, and the true effect size ranging from 0 to .7. Two different methods of simulating outcome measures are compared, using a conventional null-hypothesis significance testing approach with alpha set at .05. In step 1, a table of values is derived giving the minimum N significant outcomes (MinNSig) that should be required for a given number of outcome measures to control the false positive rate at 5%. These values are used in the Adjust Nvar approach adopted in step 2. For this step, data are simulated in which the MinNSig values are used for each number of correlated outcomes and the resulting proportion of significant results is computed at different sample sizes and effect sizes. The Adjust Nvar approach achieves higher power than use of a single outcome when there are 6 or more moderately intercorrelated outcome variables, and is considerably better in this regard than data reduction by extraction of a single principal component. Where it is feasible to have a range of correlated outcome measures, then this might be a more efficient approach than reliance on a single primary outcome measure. In effect, it builds in an internal replication to the study. 
+
+## The case against multiple outcomes
+
+The CONSORT guidelines for clinical trials [@moher2010] are very clear on the importance of having a single primary outcome:  
+_All RCTs assess response variables, or outcomes (end points), for which the groups are compared. Most trials have several outcomes, some of which are of more interest than others. The primary outcome measure is the pre-specified outcome considered to be of greatest importance to relevant stakeholders (such a patients, policy makers, clinicians, funders) and is usually the one used in the sample size calculation. Some trials may have more than one primary outcome. Having several primary outcomes, however, incurs the problems of interpretation associated with multiplicity of analyses and is not recommended._  
+
+This advice often creates a dilemma for the researcher: in many situations there are multiple measures that could plausibly be used to index the outcome. A common solution is to apply a Bonferroni correction to the alpha level used to test significance of individual measures, but this is over-conservative if, as is usually the case, the different outcomes are intercorrelated. Alternative methods are to adopt some process of data reduction, such as extracting a principal component from the measures that can be used as the primary outcome, or using a permutation test to derive exact probability of an observed pattern of results. Here I explore a further, very simple, option which I term the "Adjust Nvar" approach. The idea is that if you have multiple outcomes, instead of adjusting the alpha level, one can adjust the number of outcomes that are required to achieve significance at the conventional alpha level of .05 to maintain an overall false positive rate of 1 in 20.  
+
+To illustrate the idea with a realistic example, suppose we are running a behavioural intervention that is designed to improve language and literacy, and there are 6 measures where we might plausibly expect to see some benefit. The average intercorrelation between measures is .4. Suppose we find that none of the outcomes achieves Bonferroni-adjusted significance criterion of p < .008, but two of them reach significance of p < .05. Should we dismiss the trial as showing no benefit?  We can use the binomial theorem to check the probability of obtaining this result if the null hypothesis is true and the measures are independent: it is `r round(binom.test(2,6,.05)$p.value,3)`, clearly below the 5% alpha level. But what if the measures are intercorrelated? A thought experiment helps here. Suppose we had six measures that were intercorrelated at .95 - in effect they would all be measures of the same thing, and so if there was a true effect, there would be a high probability that they would all show it. Extending this logic in a more graded way, the higher the correlation between the measures, the more measures would need to reach the original significance criterion to maintain the overall significance level below .05. 
+
+A simulation script was developed to test these intuitions and to obtain estimates of:  
+-(A) the minimum number of outcome variables that would maintain the overall false positive rate at 1 in 20, if each individual measure was evaluated at the significance criterion of .05. This we term MinNSig.  
+-(B) the power to detect a true effect, if the criterion for rejection the null hypothesis was based on the value of MinNSig identified at step A.  
+
+
+## Results
+
+### The Adjust Nvar approach
+
+Table 1 shows results from a simulation of the Adjust Nvar approach, with the values in the body of the table showing MinNSig, the minimum number of measures that would maintain the overall false positive rate at 1 in 20, if each individual measure was evaluated at the significance criterion of .05. Details of the simulation are given in the Appendix. In brief, to construct Table 1, random normal datasets were generated for a total of 12 outcomes per run to give a set of p-values from one-tailed t-tests for each dataset and each outcome. The p-values for outcome measures were rank ordered for each run and each number of outcome variables. Then, the proportion of p-values less than .05 was calculated for each rank for each number of outcome variables, to find the highest rank at which the overall proportion was less than .05. This is the MinNSig. Table 2 gives a toy example of the logic.  In principle, researchers could use Table 1 to specify in their research protocol the minimum number of outcomes that would reach their significance level in order for the null hypothesis to be rejected. 
+
+```{r toydemo,echo=F}
+toybit <-filter(p.df,ES==0)
+w<-which(colnames(toybit)=="r4.1")
+mytoy <- round(toybit[1:100,c(6:9,w:(w+3))],3)
+flextable(mytoy)
+
+```
+## Power of the Adjust Nvar approach
+
+Our focus so far has been on control of the type I error rate, i.e. using simulations when the null hypothesis is true. This raises the question of whether there are any benefits to using multiple outcomes in this fashion. One might expect that this approach could increase power because, in effect, one is replicating an effect within the study. Once again, however, we need to take into account both the total number of outcome measures and their intercorrelation. Furthermore, power depends on sample size and true effect size. The simulation was rerun with sample size varied from 25 to 100 per group, in steps of 25 ,and true effect size took values of .3, .5 or .7. Power was computed for the situation when the N significant outcomes relative to the total N outcomes corresponded to the values in Table 1. Table 3 shows the results. 
+
+
+## Discussion
+
+The logic of multiple testing is turned on its head with the Adjust Nvar approach, in that instead of adjusting the p-value used for significance (as in the Bonferroni correction, or FDR methods), we adjust the number of individual outcome measures that need to reach the intended significance criterion.  This value can be easily computed using the binomial theorem if the outcome measures are uncorrelated, but in the context of intervention trials that is an unrealistic assumption. Table 1 provides values of Nvar based on simulation that take into account the average intercorrelation between outcome measures. Because the statistics used to determine p-values are adjusted for sample size, these values are independent of numbers of subjects.
+
+One advantage of this approach is that it is more compatible with trials of interventions that are expected to affect a range of related processes, as is common in some fields such as education or speech and language therapy. In such cases, the need to specify a single primary outcome tends to create difficulties, because it is often unclear which of a set of outcomes is likely to show an effect. Note that the Adjust Nvar approach does not give the researcher free rein to engage in p-hacking: the more measures are included in the study, the higher the critical value of Nvar will be. It does, however, remove the need to put all ones eggs in one basket by prespecifying one measure as the primary outcome. 
+
+A second advantage of this approach is that once the values in Table 1 are computed, it is very simple to apply, and can be used a priori to specify the criterion that will be used in a protocol. 
+
+A third advantage is that in effect, by including multiple outcome measures, one can improve the power of a study. If several outcome measures are seen as imperfect proxy indicators of an underlying latent construct, then we are in effect building in a degree of within-study replication if we require that more than one measure shows the same effect in the same direction before we reject the null hypothesis. 
+
+The conclusions from this approach do depend, of course, crucially on assumptions embodied in the simulation that is used to derive predictions. Simulated outcome measures are normally distributed, and quite uniform in their covariance structure. The set of correlated measures was generated by first creating a random normal deviate that was treated as the latent variable, and then creating outcome measures with a specific degree of correlation with the latent variable. It would be possible to generate datasets with different underlying covariance structures to be tested in the same way, but that is beyond the scope of this paper. In general, though, the impact of size of correlation between outcome measures was fairly small in the intermediate ranges (.4 to .6) that are likely to characterise outcome measures used in intervention studies - that is, we tend not to see measures that are either uncorrelated or highly correlated. 
+
+
+
+
+# Appendix
+## Details of the simulation
+The script is available on xxx.
+
+```{r loadpackages,echo=F,warning=F}
+require(tidyverse)
+require(flextable)
+require(MASS)
+require(pwr)
+```
+### Generating correlated outcome variables. 
+10,000 simulations were run. Correlated variables were simulated using in the R programming language [@rcoreteam2020a], using the formula:  
+- r * base + sqrt(1-r^2)*err  
+where r is the correlation between base and each outcome, and base is a vector of random normal deviates that is the same for each outcome variable, while err is a vector of random normal deviates that differs for each outcome variable.  Note that when outcome variables are generated this way, the mean intercorrelation between them will be r^2.  Thus if we want a set of outcome variables with mean intercorrelation of .4, we need to specify r in the function below as sqrt(r) = .632.  
+For estimating power, we add the effect size (ES) to the base variable.  
+In addition to the individual variables, we compute and save the principal component from all outcome variables, using the base R function _prcomp_ from the _stats_ package.
+
+```{r makecorrelated,echo=F}
+# This function generates a base vector plus maxn variables for N subjects.
+# The base vector is saved in the last column. This is not returned as it is only used to check that the correct correlation structure has been achieved.
+# The maxn variables are saved in the first maxn columns. They have a correlation, r, with the base vector.
+# The average intercorrelation between maxn variables is sqrt(r)
+# The columns after maxn contain the principal component scores from the different levels of N outcomes for each subject, e.g. PCA2, PCA4, and PCA6, if we are considering outcome sets of 2, 4 or 6 variables. 
+
+makecor <- function(N,outcomes,r,mu,sd){ #we generate raw data for max value of outcomes, and then create principal components for all N outcome values
+#  NB outcomes is a vector of possible N outcomes - e.g. c(2, 4, 6) if you want to simulate data to consider 2, 4, or 6 outcomes
+# we always simulate individual variables up to the maximum number of outcomes, e.g. in examples above, would simulate 6 outcome variables. These are in the first columns.
+# We also simulate a principal component (PC) for each outcome set, i.e. a PCA based just on variables 1-2, and another based on variables 1-4, and another on variables 1-6. 
+
+  maxn <- max(outcomes)
+  rvals <-data.frame(matrix(NA,nrow=N,ncol=(1+maxn+length(outcomes))))
+  ncols <- ncol(rvals)
+  base <- rnorm(N,mu,sd)
+  for (v in 1:maxn){
+    rvals[,v]<-r*base+sqrt(1-r^2)*rnorm(N,0,1)
+  }
+  thiscol<-maxn #we will add PCs as next set of cols
+  for(o in outcomes){
+    thiscol<-thiscol+1
+  p<- prcomp(rvals[,1:o])$rotation[,1]
+  rvals[,thiscol]<-apply(rvals[,1:o],1,function(x) sum(p*x)) #compute principal component score for each row of data
+  }
+
+ r1 <-cor(rvals[,1],rvals[,(maxn+1)])
+  if(r1<0)
+    {rvals[,(maxn+1):(ncols-1)]<-(-1)*rvals[,(maxn+1):(ncols-1)]} #if correlation between 1st var and PC is negative, switch polarity of PCs
+
+  rvals[,ncols]<-base #just used for checking correlations
+  #cor(rvals) #checking correlations
+  #NB principal component correlates higher with individual vars than the base component - 
+  #presumably because PC is derived from the data.
+  return(rvals[,1:(ncols-1)]) #we don't save the base value, which is latent
+}
+
+```
+
+```{r makecorrelated_MASS,echo=F}
+# This function generates a base vector plus maxn variables for N subjects.
+# The base vector is saved in the last column. This is not returned as it is only used to check that the correct correlation structure has been achieved.
+# The maxn variables are saved in the first maxn columns. They have a correlation, r, with the base vector.
+# The average intercorrelation between maxn variables is sqrt(r)
+# The columns after maxn contain the principal component scores from the different levels of N outcomes for each subject, e.g. PCA2, PCA4, and PCA6, if we are considering outcome sets of 2, 4 or 6 variables. 
+
+makecorMASS <- function(N,outcomes,r,mu,sd){ 
+  #Alternative approach: just generate correlated vars with mu set to ES 
+# We also simulate a principal component (PC) for each outcome set, i.e. a PCA based just on variables 1-2, and another based on variables 1-4, and another on variables 1-6. 
+
+  maxn <- max(outcomes)
+  rvals <-data.frame(matrix(NA,nrow=N,ncol=(maxn+length(outcomes))))
+  ncols <- ncol(rvals)
+  cormat <-matrix(r,nrow=maxn,ncol=maxn)
+  diag(cormat) <- 1
+  rvals[,1:maxn] <- mvrnorm(N,rep(mu,maxn),cormat)
+  thiscol<-maxn #we will add PCs as next set of cols
+  for(o in outcomes){
+    thiscol<-thiscol+1
+  p<- prcomp(rvals[,1:o])$rotation[,1]
+  rvals[,thiscol]<-apply(rvals[,1:o],1,function(x) sum(p*x)) #compute principal component score for each row of data
+  }
+
+
+  #cor(rvals) #checking correlations
+ 
+  return(rvals)
+
+}
+
+```
+
+For each run of the simulation, a one-tailed t-test was used to compare groups A and B; we can use a one-tailed test as we assume the intervention group (B) will obtain a higher score than the control group (A).  This generates a huge data frame of p-values, one per run, covering all values of effect size, correlation and sample size. P-values are given for individual variables, and for the principal components. 
+
+```{r createp,echo=F}
+# Now we create a giant file with p-values
+skipsim <- 1 #we can skip the simulation process and read data from previous run if we set skipsim to one 
+nsim <- 1000 #number of runs for each combination of mycorr, mynvar,myES and myN.
+#for final version, have v. large value - for testing try with smaller nsims
+
+mycorr <- c(0,.2,.4,.6,.8) #intercorrelations between variables to consider
+nstep<-2
+outcomes <- seq(2,12,nstep) #number of outcome variables to consider
+maxn <- max(outcomes) #we always create max number of variables, and then use subsets of this to examine smaller Ns
+myES <- c(0,.3,.5,.7) #effect sizes to consider
+myN <- c(20,50,80,110) #Ns per group to consider
+method <- 1 #simulation method 1, use latent factor; method 2, use MASS
+mypname <-paste0('p_1sided_method',method,'_allN_allES_allcorr_maxn',maxn,'_nsim',nsim) #filename to save csv file with simulated p-values (saves time when many runs used)
+myfolder <-'data/'
+
+
+if(skipsim==0){ 
+#set up dataframe for holding pvalues
+p.df <- data.frame(matrix(NA,nrow=nsim*length(mycorr)*length(myN)*length(myES),ncol=maxn+5+length(outcomes)))
+colnames(p.df) <-c('run','ES','Nsub','corr','obsES',paste0('V',1:maxn),paste0('PC',outcomes) ) 
+#The last set of columns hold the smallest p-value obtained for each value of outcomes
+coloffset <- which(colnames(p.df)=='V1')-1
+thisrow <- 0
+for (s in 1:nsim){
+  for (c in mycorr){
+    for (e in myES){
+      for(n in myN){
+        thisrow <- thisrow+1
+        p.df$run[thisrow] <- s
+        p.df$corr[thisrow] <- c
+        p.df$ES[thisrow]<-e
+        p.df$Nsub[thisrow]<-n
+
+        if(method==1){
+        A <- makecor(n,outcomes,sqrt(c),0,1) #intercorrelations will be mycor^2
+        B <- makecor(n,outcomes,sqrt(c),e,1) #group B is intervention group: has ES added to base value
+        }
+         if(method==2){
+        A <- makecorMASS(n,outcomes,c,0,1) 
+        B <- makecorMASS(n,outcomes,c,e,1) #group B is intervention group: has ES added 
+        }
+        
+        for (v in 1:(maxn+length(outcomes))) {
+          tempt <- t.test(A[,v],B[,v],alternative='less') #one-tailed t-test ; predict A<B
+          p.df[thisrow,(v+coloffset)]<-tempt$p.value
+          
+        }
+        allA<-pull(A[,1:maxn]) #converts all A obsvar values to vector!
+        allB<-pull(B[,1:maxn])
+        p.df$obsES[thisrow]<-(mean(allB)-mean(allA))/sd(c(allA,allB))
+      }
+    }
+  }
+}
+write.csv(p.df,paste0(myfolder,mypname,'.csv'),row.names=F)
+# we now have p.df, which is a big dataframe with p-values from all the simulations, for max N variables at all corrs, effect sizes and sample sizes.
+}
+if(skipsim==1){
+  
+  p.df<-read.csv(paste0(myfolder,mypname,'.csv'))
+}
+```
+
+The next step is to rank order the p-values for each outcome set size. 
+
+```{r ranked-p}
+
+for (o in outcomes){
+#first create o blank columns to hold ranked values
+  lastcol<-ncol(p.df)
+  p.df[,(lastcol+1):(lastcol+o)]<-NA
+  for (x in 1:o){
+  colnames( p.df)[(x+lastcol)] <- paste0('r',o,'.',x)
+  }
+
+p.df[,(lastcol+1):(lastcol+o)]<-t(apply(p.df[,6:(coloffset+o)],1,function(x) x[order(x)]))
+}
+#write.csv(p.df,paste0(myfolder,mypname,'.csv'),row.names=F) - can save file with the added ranks, but this can create duplicates if already saved and read in.
+```
+We now create a little table that gives the N outcomes that need to be p < .05 for overall FP rate to be maintained
+
+```{r nvartab}
+#Here we focus only on cases where ES = 0, i.e. null hypothesis is true
+
+shorttab<- data.frame(matrix(NA,nrow=length(mycorr),ncol=1+length(outcomes)))
+colnames(shorttab) <-c('corr',paste0('N',outcomes)) #file to hold N significant
+shorttab[,1]<-mycorr
+for (j in 1:length(mycorr)){
+  nullp <- filter(p.df,ES==0,corr==mycorr[j],Nsub==max(myN))
+for (i in 1:length(outcomes)){
+  fprate <- vector() #initialise
+  mysize <- outcomes[i]
+  fcol <-  which(colnames(nullp)== paste0('r',mysize,".2"))
+  fcols <- fcol:(fcol+mysize-2)
+  
+  for (f in fcols){
+    thisfp <- length(which(nullp[,f]<.05))/nrow(nullp)
+  fprate<-c(fprate,thisfp)
+} 
+  w<-min(which(fprate<.05))
+  w<-w+1 #start size is with 2 vars
+  if (w>mysize){w<-mysize}
+    shorttab[j,(i+1)]<-w
+}
+}
+write.csv(shorttab,'data/corrvars_Ns.csv',row.names=F)
+```
+
+Next we compute the proportion of all runs in each condition that give p < .05. This corresponds to false positive rate when effect size is zero, and to power when effect size is > 0.
+
+```{r powerForManyN,echo=F}
+shorttab <- read.csv('data/corrvars_Ns.csv')
+#insert a column for the Nvar = 1 case
+shorttab2 <- cbind(shorttab[,1],shorttab[2],shorttab[2:7])
+colnames(shorttab2)[1:2]<-c('corr','N1')
+shorttab2[,2]<-1
+
+powertab<-cbind(shorttab[,1],shorttab[2],shorttab[2],shorttab2)
+colnames(powertab)[1:3]<-c('ES','obsES','nsub')
+N1col<-which(colnames(powertab)=="N1")
+
+#add cols to hold data from PCs
+lastcol<-ncol(powertab)
+nucols <<- (lastcol+1):(lastcol+length(outcomes))
+powertab[,nucols]<-NA
+colnames(powertab)[nucols]<-paste0('PC',outcomes)
+
+writerow <- 0
+for (e in myES){
+  for (n in myN){
+        for (c in mycorr){
+    tempdata<-dplyr::filter(p.df,ES==e,Nsub==n,corr==c)
+    
+      writerow <- writerow+1
+      powertab[writerow,]<-NA
+      powertab$ES[writerow]<-e
+      powertab$nsub[writerow]<-n
+      powertab$corr[writerow]<-c
+      powertab$obsES[writerow]<-round(mean(tempdata$obsES),4)
+      #put power for single variable in N1 column against corr = 0
+      if(c==0){
+      powertab$N1[writerow] <-length(which(tempdata$V1<.05))/nrow(tempdata)
+      }
+      for (v in outcomes){
+        critcol <- which(colnames(shorttab2)==paste0('N',v))
+        critrow <- which(shorttab2$corr==c)
+        critN <-shorttab2[critrow,critcol] #N below .05 to control FP rate at .05
+        thiscol<-paste0('r',v,'.',critN)
+        w<-which(colnames(tempdata)==thiscol)
+        power <- length(which(tempdata[,w]<.05))/nrow(tempdata)
+        thatcol <- which(colnames(powertab)==paste0('N',v))
+        powertab[writerow,thatcol]<-power
+        
+        PCcol <- which(colnames(tempdata)=='PC2')+v-1
+        thispcp <- length(which(tempdata[,PCcol]<.05))/nrow(tempdata)
+        powertab[writerow,(thatcol+length(outcomes))]<-thispcp
+        
+      }
+    }
+  }
+}
+   #now add power for single variable
+
+write.csv(powertab,'data/powertabB_1sided.csv',row.names=F)
+  
+
+```
+Convert to long form 
+
+
+```{r makelongform}
+#need to convert to long form
+powertab[,1]<-as.factor(powertab[,1])
+powertab[,4]<-as.factor(powertab[,4])
+
+
+power_long <- gather(powertab, Nvar, power, N1:PC12, factor_key=TRUE)
+
+
+#create new col for the PC values
+#This is fiddly as we have to ignore the N1 rows, so have to find the right range for reading and writing
+PCrange <- which(power_long$Nvar=="PC2")[1]:nrow(power_long) #first row of PCs to end
+PCwrite <- which(power_long$Nvar=="N2")[1]:(which(power_long$Nvar=="N2")[1]+length(PCrange)-1)
+power_long$PC<-NA #initialise
+power_long$PC[PCwrite] <- power_long$power[PCrange]
+power_long<-power_long[1:(PCrange[1]-1),]
+
+w<-which(is.na(power_long$power)) #find those with no power value and drop
+w1<-c(w,which(is.na(power_long$corr))) #find those with no corr value and drop
+```
+
+Will help visualise effect if we compute gain over single variable power
+```{r computepowergain}
+
+#We'll use computed power for base power with single outcome
+power_long$powerbase<-NA
+power_long$Nvar_gain<-NA
+power_long$PC_gain<-NA
+startrow<-which(power_long$Nvar=='N2')[1]
+for (i in startrow:nrow(power_long)){
+  n <- power_long$nsub[i]
+  oe <- power_long$obsES[i]
+  basepower <-pwr.t.test(n=n,d=oe,sig.level=.05,alternative='greater')$power
+  #set power to greater as we have set d to be positive
+  power_long$powerbase[i]<-basepower
+  power_long$Nvar_gain[i]<-power_long$power[i]-power_long$powerbase[i]
+  power_long$PC_gain[i]<-power_long$PC[i]-power_long$powerbase[i]
+}
+
+
+mypsumname <-paste0('p_1sided_method',method)
+write.csv(power_long,paste0(myfolder,mypsumname,'.csv'),row.names=F)
+```
+
+Now plot results to facilitate comparisons.
+```{r plots}
+#facet plot for Nvar variation
+#create variable with 'r = ' so labels are less confusing
+power_long$rlabel <-as.factor(paste0('r = ',power_long$corr)) 
+power_long$nsub2 <-as.factor(power_long$nsub)
+p <- ggplot(power_long[-w1,], aes(obsES,Nvar_gain ))+
+ geom_point(aes(colour = nsub2))+
+ geom_hline(yintercept=0, linetype="dotted", color = "black")
+p<-p + facet_grid(vars(Nvar),vars(rlabel))
+
+#facet plot for PC
+q_long <- power_long[power_long$Nvar!='N1',]
+q_long$Nvar <- droplevels(q_long$Nvar)
+q <- ggplot(q_long, aes(obsES,PC_gain ))+
+ geom_point(aes(colour = nsub2))+
+   geom_hline(yintercept=0, linetype="dotted", color = "black")
+
+q <-q + facet_grid(vars(Nvar),vars(rlabel))
+
+
+```
+
+
+
