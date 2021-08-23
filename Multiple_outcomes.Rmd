@@ -1,9 +1,13 @@
 ---
-title: "Using multiple outcomes in intervention studies to increase statistical power: the Adjust NVar approach"
+title: 'Using multiple outcomes in intervention studies to increase statistical power:
+  the Adjust NVar approach'
 author: "D. V. M. Bishop"
 date: "23/08/2021"
-output: html_document
-bibliography: refs.bib  
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+bibliography: refs.bib
 ---
 
 ```{r setup, include=FALSE}
@@ -16,6 +20,7 @@ require(pwr)
 require(graphics)
 fignum <- 0
 tabnum <-0
+set_flextable_defaults(fonts_ignore=TRUE)
 ```
 
 
@@ -374,7 +379,7 @@ q <-q + facet_grid(vars(Nvar),vars(rlabel))
 
 ## Methods
 
-Correlated variables were simulated using in the R programming language [@rcoreteam2020a]. The script to generate and analyse simulated data is available on https://github.com/oscci/MinSigVar, and more technical details are provided in the Appendix. Two approaches to modeling correlated variables were compared, Method M and Method L.  
+Correlated variables were simulated using in the R programming language [@rcoreteam2020]. The script to generate and analyse simulated data is available on https://github.com/oscci/MinSigVar, and more technical details are provided in the Appendix. Two approaches to modeling correlated variables were compared, Method M and Method L.  
 
 ### Method M
 Method M uses the _mvrnorm_ function of the _MASS_ package to generate a set of 12 outcome variables with a specified covariance matrix. For simplicity, all variables were simulated as random normal deviates with SD of 1, and the covariance matrix had a prespecified correlation, r, in all off-diagonal elements. The correlation varied across runs from 0 to .8 in steps of .2, and the number of simulated cases varied from 20 to 110 in steps of 30. Outcomes for Intervention (I) and Control (C) groups differed only in terms of the mean, which was always zero for the group C, and a given effect size, e, for group I. 
@@ -498,7 +503,7 @@ for (i in 1:nrow(shortpower)){
  }
 }
 
-
+effsize <- c('Null','Small','Medium','Large')
 fpcols <- 1:(length(myN)*length(mycorr)) #cols hold values for ES=0
 
 firstcol<-which(colnames(shortpower)=='N1')
@@ -518,46 +523,53 @@ alloutcomes<-c(1,outcomes) #will include plot for N =1
 
 for (e in 2:length(myES)){  #ignore ES=0
 par(mfrow=c(3,3))
-
-  for (nvar in 1:length(alloutcomes)){
+n1 <-1
+if (method=='L'){n1 <- 2}
+  for (nvar in n1:length(alloutcomes)){
     xrange <- (e-1)*length(fpcols)+fpcols
     yrange <-fpcols
     xcol<-firstcol+nvar-1
     
-    plot(shortpower[xrange,xcol],shortpower[yrange,xcol],main=paste0('Method ',method,' ES:',myES[e],' Nvar:',alloutcomes[nvar]),col=shortpower$colorcol,pch=shortpower$shapecol,xlim=c(0,1),ylim=c(.001,.1),log='y',xlab='Power',ylab='FP rate (log scale)')
-    if(nvar>1){
-    legend("topleft", legend=c('0','.2','.4','.6','.8'),pch  =1,
-           col=mycols,  cex=0.75,title="Correlation",horiz=TRUE) #text for labels to save space
-    }
-    legend("bottomleft", legend=myN,pch=myshapes,
-           col=1,  cex=0.75,title="Sample size",horiz=TRUE)
+    plot(shortpower[xrange,xcol],shortpower[yrange,xcol],main=paste0('Method ',method,' ',effsize[e],' Effect Nvar:',alloutcomes[nvar]),col=shortpower$colorcol,pch=shortpower$shapecol,xlim=c(0,1),ylim=c(.001,.1),log='y',xlab='Power',ylab='FP rate (log scale)',cex=1.5)
+ 
    
-    abline(v=.8,lty=2)
-    abline(h=.05,lty=2)
+    abline(v=.8,lty=3)
+    abline(h=.05,lty=3)
     
   }
+#make plot for legend
+plot(NULL ,xaxt='n',yaxt='n',bty='n',ylab='',xlab='', xlim=0:1, ylim=0:1)
+legend("topleft", legend=c('0','.2','.4','.6','.8'),title='Correlation', pch=15, pt.cex=2.5, cex=1.2, bty='n', col = mycols)
+legend("topright", legend=myN,title='N per group', pch=myshapes, pt.cex=2.5, cex=1.2, bty='n')
+
 }
+
 }
 ```
 
-```{r doplots,echo=F,warning=F,fig.width=7,fig.asp=1,}
+```{r doplotsM,echo=F,warning=F,fig.width=7,fig.asp=1,fig.cap='Figure 2'}
 plotpower('M')
 
 ```
 
 `r fignum <- fignum+1`
-An efficient method is one that gives power of .8 or above, and a false positive rate of .05 or less, i.e. the results should cluster in the bottom right quadrant. Power is dependent on sample size, as is evident from these plots where the unfilled figures, corresponding to the smallest sample size of 20 per group,fail to achieve power above .8, except at the highest effect size of .7.  It is evident from inspection that when method M is used, the Adjust NVar approach compares favourably with the single outcome (Nvar 1) case, tending to give higher power and lower false positive rates, especially when there are between 4 and 6 variables with a moderate degree of intercorrelation.  
+For these plots, the small, medium and large effect sizes correspond to Cohen's d of .3, .5 and .7. An efficient method is one that gives power of .8 or above, and a false positive rate of .05 or less, i.e. the results should cluster in the bottom right quadrant. Power is dependent on sample size, as is evident from these plots where the unfilled figures, corresponding to the smallest sample size of 20 per group,fail to achieve power above .8, except at the highest effect size of .7.  It is evident from inspection that when method M is used, the Adjust NVar approach compares favourably with the single outcome (Nvar 1) case, when there are 4 or more outcome measures in a suite.  The power tends to be at least as high as for the single variable case, with lower false positive rates. Note, however, that the highest power is seen for the case where the variables are uncorrelated (black symbols), and this is an unrealistic scenario, especially for large suites of outcome measures. 
 
-Figure `r fignum` gives an equivalent plot for method L. 
-```{r doplots,echo=F,warning=F,fig.width=7,fig.asp=1,}
+
+Figure `r fignum` gives an equivalent plot for method L.  
+
+  
+
+```{r doplotsL,echo=F,warning=F,fig.width=7,fig.asp=1,fig.cap='Figure 4'}
 plotpower('L')
 
 ```
-`As noted above, method L is more realistic, but because the effect size is computed from a latent variable, with outcome measures as indirect indicators, the observed effect sizes for individual variables in a suite will vary, depending on the correlation between the variables. For the case where there is a single primary outcome, the average effect size in multiple outcome simulations when correlation = .8 was used to compute power, using the _pwr.t.test_ function from the _pwr_ package in R.
+  
+As noted above, method L is more realistic, but because the effect size is computed from a latent variable, with outcome measures as indirect indicators, the observed effect sizes for individual variables in a suite will vary, depending on the correlation between the variables. Here, the designations of effect size as small, medium and large corresponds to the effect on the unobserved latent variable used to generate the outcome measures. 
 
- Method L provides power estimates that are more in keeping with the single outcome case, but achieves this level of power while providing a more stringent control of false positives. 
+Method L provides power estimates that are more in keeping with the single outcome case (see previous figure), but achieves this level of power while providing a more stringent control of false positives. The Adjust Nvar approach works well when there are between 4 and 6 outcome measures that are moderately intercorrelated (r between .4 and .6). 
 
-Finally, the Principal components from each suite of outcomes were inspected, but they are not plotted here, as it was evident that they are reliably lower than the power obtained with the Adjust Nvar approach, regardless of the method used to generate the data (see Appendix for values).  
+Finally, the Principal Components from each suite of outcomes were inspected, but they are not plotted here, as it was evident that they are reliably lower than the power obtained with the Adjust Nvar approach, regardless of the method used to generate the data (see Appendix for values).  
 
 ## Discussion
 
@@ -569,7 +581,9 @@ A second advantage of this approach is that once the values of MinNSig have been
 
 A third advantage is that in effect, by including multiple outcome measures, one can improve the efficiency of a study, in terms of the trade-off between power and false positives. If several outcome measures are seen as imperfect proxy indicators of an underlying latent construct, then we are in effect building in a degree of within-study replication if we require that more than one measure shows the same effect in the same direction before we reject the null hypothesis. 
 
-The conclusions from this approach do depend crucially on assumptions embodied in the simulation that is used to derive predictions. Outcome measures simulated here are normally distributed, and quite uniform in their covariance structure. In Method L, which seems a more realistic approach than Method M, the set of correlated measures was generated by first creating a random normal deviate that was treated as the latent variable, and then creating outcome measures with a specific degree of correlation with the latent variable. It would be possible to generate datasets with different underlying covariance structures to be tested in the same way, but that is beyond the scope of this paper. In general, though, the impact of size of correlation between outcome measures was fairly small in the intermediate ranges (.4 to .6) that are likely to characterise outcome measures used in intervention studies - that is, we tend not to see measures that are either uncorrelated or highly correlated. 
+The results obtained with this approach depend crucially on assumptions embodied in the simulation that is used to derive predictions. Outcome measures simulated here are normally distributed, and quite uniform in their covariance structure. In Method L, which seems a more realistic approach than Method M, the set of correlated measures was generated by first creating a random normal deviate that was treated as the latent variable, and then creating outcome measures with a specific degree of correlation with the latent variable. It would be possible to generate datasets with different underlying covariance structures to be tested in the same way, but that is beyond the scope of this paper. 
+
+
 
 # Appendix
 
