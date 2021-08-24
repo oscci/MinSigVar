@@ -142,7 +142,11 @@ rankp <- function(p.df,outcomes){
 ```{r createp,echo=F}
 # For each run of the simulation, a one-tailed t-test is used to compare groups I and C; we can use a one-tailed test as we assume the intervention group (I) will obtain a higher score than the control group (C).  This generates a huge data frame of p-values, one per run, covering all values of effect size, correlation and sample size. P-values are given for individual variables, and for the principal components. 
 
+#Need to run this chunk for method L and method M to create files for knitted doc.
+
 skipsim <- 1 #we can skip the simulation process and read data from previous run if we set skipsim to one 
+method <- "L" #simulation method L, use latent factor; method M, use MASS
+
 # If skipsim is 0 and nsim is 1000, this will take a few hours to run
 nsim <- 1000 #number of runs for each combination of mycorr, mynvar,myES and myN.
 #for final version, have v. large value - for testing try with smaller nsims
@@ -153,7 +157,6 @@ outcomes <- seq(2,12,nstep) #number of outcome variables to consider
 maxn <- max(outcomes) #we always create max number of variables, and then use subsets of this to examine smaller Ns
 myES <- c(0,.3,.5,.7) #effect sizes to consider
 myN <- c(20,50,80,110) #Ns per group to consider
-method <- "M" #simulation method L, use latent factor; method M, use MASS
 mypname <-paste0('p_1sided_method',method,'_allN_allES_allcorr_maxn',maxn,'_nsim',nsim) #filename to save csv file with simulated p-values (saves time when many runs used)
 myfolder <-'data/'
 
@@ -191,7 +194,7 @@ if(skipsim==0){
           }
           allC<-pull(C[,1:maxn]) #converts all df values to vector
           allI<-pull(I[,1:maxn])
-          p.df$obsES[thisrow]<-(mean(allC)-mean(allI))/sd(c(allC,allI))
+          p.df$obsES[thisrow]<-(mean(allI)-mean(allC))/mean(sd(c(allC),sd(allI)))
         }
       }
     }
