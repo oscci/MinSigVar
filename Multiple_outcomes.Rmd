@@ -4,8 +4,8 @@ title: 'Using multiple outcomes in intervention studies to increase statistical 
 author: "D. V. M. Bishop"
 date: "23/08/2021"
 output:
-  html_document: default
   word_document: default
+  html_document: default
   pdf_document: default
 bibliography: refs.bib
 ---
@@ -20,7 +20,7 @@ require(pwr)
 require(graphics)
 fignum <- 0
 tabnum <-0
-set_flextable_defaults(fonts_ignore=TRUE)
+
 ```
 
 
@@ -594,12 +594,12 @@ powerL<-read.csv('data/powertab_methodL.csv')
 powerM$obsES<-round(powerM$obsES,3)
 powerL$obsES<-round(powerL$obsES,3)
 ft<-flextable(powerM)
-ft <- fontsize(ft, size = 9,part="all")
+ft <- fontsize(ft, size = 8,part="all")
 ft<-set_caption(ft,'Power table for Method M (where ES = 0, values are false positive rate)')
 ft
 
 ft<-flextable(powerL)
-ft <- fontsize(ft, size = 9,part="all")
+ft <- fontsize(ft, size = 8,part="all")
 ft<-set_caption(ft,'Power table for Method L (where ES = 0, values are false positive rate)')
 ft
 ```
