@@ -26,19 +26,19 @@ tabnum <-0
 
 ## Abstract
 
-The CONSORT guidelines for clinical trials recommend that the researcher should specify a single primary outcome, to guard against the raised risk of false positive findings when multiple measures are considered. It is, however, possible to include a suite of multiple outcomes in an intervention study, while controlling the false positive rate, provided the criterion for rejecting the null hypothesis specifies that N or more of the outcomes reach an agreed level of statistical significance, where N depends on the total number of outcome measures included in the study, and the correlation between them. I present simulations that explore the case when between 2 and 12 outcome measures are included in a suite, with the average correlation between measures ranging from zero to .8, and the true effect size ranging from 0 to .7. Two different methods of simulating outcome measures are compared, using a conventional null-hypothesis significance testing approach with alpha set at .05. In step 1, a table is created giving the minimum N significant outcomes (MinNSig) that is required for a given size of suite of outcome measures to control the false positive rate at 5%. These values are used in the Adjust Nvar approach adopted in step 2. For this step, data are simulated in which the MinNSig values are used for each size of suite of correlated outcomes and the resulting proportion of significant results is computed at different sample sizes and effect sizes. The Adjust Nvar approach can achieve a more efficient ratio between power and false positive rate than use of a single outcome when the suite includes 6 or more moderately intercorrelated outcome variables, and is considerably better in this regard than data reduction by extraction of a single principal component. Where it is feasible to have a suite of correlated outcome measures, then this might be a more efficient approach than reliance on a single primary outcome measure. In effect, it builds in an internal replication to the study. 
+The CONSORT guidelines for clinical trials recommend that the researcher should specify a single primary outcome, to guard against the raised risk of false positive findings when multiple measures are considered. It is, however, possible to include a suite of multiple outcomes in an intervention study, while controlling the familywise error rate, provided the criterion for rejecting the null hypothesis specifies that N or more of the outcomes reach an agreed level of statistical significance, where N depends on the total number of outcome measures included in the study, and the correlation between them. I present simulations that explore the case when between 2 and 12 outcome measures are included in a suite, with the average correlation between measures ranging from zero to .8, and the true effect size ranging from 0 to .7. Two different methods of simulating outcome measures are compared, using a conventional null-hypothesis significance testing approach with alpha set at .05. In step 1, a table is created giving the minimum N significant outcomes (MinNSig) that is required for a given size of suite of outcome measures to control the familywise error rate at 5%. These values are used in the Adjust Nvar approach adopted in step 2. For this step, data are simulated in which the MinNSig values are used for each size of suite of correlated outcomes and the resulting proportion of significant results is computed at different sample sizes and effect sizes. The Adjust Nvar approach can achieve a more efficient ratio between power and familywise error rate than use of a single outcome when the suite includes 6 or more moderately intercorrelated outcome variables, and is considerably better in this regard than data reduction by extraction of a single principal component. Where it is feasible to have a suite of correlated outcome measures, then this might be a more efficient approach than reliance on a single primary outcome measure. In effect, it builds in an internal replication to the study. 
 
 ## The case against multiple outcomes
 
 The CONSORT guidelines for clinical trials [@moher2010] are very clear on the importance of having a single primary outcome:  
 _All RCTs assess response variables, or outcomes (end points), for which the groups are compared. Most trials have several outcomes, some of which are of more interest than others. The primary outcome measure is the pre-specified outcome considered to be of greatest importance to relevant stakeholders (such a patients, policy makers, clinicians, funders) and is usually the one used in the sample size calculation. Some trials may have more than one primary outcome. Having several primary outcomes, however, incurs the problems of interpretation associated with multiplicity of analyses and is not recommended._  
 
-This advice often creates a dilemma for the researcher: in many situations there are multiple measures that could plausibly be used to index the outcome. A common solution is to apply a Bonferroni correction to the alpha level used to test significance of individual measures, but this is over-conservative if, as is usually the case, the different outcomes are intercorrelated. Alternative methods are to adopt some process of data reduction, such as extracting a principal component from the measures that can be used as the primary outcome, or using a permutation test to derive exact probability of an observed pattern of results. Here I explore a further, very simple, option which I term the "Adjust Nvar" approach. The idea is that if one has a suite of  outcomes, instead of adjusting the alpha level, one can adjust the number of outcomes that are required to achieve significance at the conventional alpha level of .05 to maintain an overall false positive rate of 1 in 20 or less.  
+This advice often creates a dilemma for the researcher: in many situations there are multiple measures that could plausibly be used to index the outcome. A common solution is to apply a Bonferroni correction to the alpha level used to test significance of individual measures, but this is over-conservative if, as is usually the case, the different outcomes are intercorrelated. Alternative methods are to adopt some process of data reduction, such as extracting a principal component from the measures that can be used as the primary outcome, or using a permutation test to derive exact probability of an observed pattern of results. Here I explore a further, very simple, option which I term the "Adjust Nvar" approach. The idea is that if one has a suite of  outcomes, instead of adjusting the alpha level, one can adjust the number of outcomes that are required to achieve significance at the conventional alpha level of .05 to maintain an overall familywise error rate of 1 in 20 or less.  
 
 To illustrate the idea with a realistic example, consider a behavioural intervention that is designed to improve language and literacy, and there are 6 measures where we might plausibly expect to see some benefit. The average intercorrelation between measures is .4. Suppose we find that none of the outcomes achieves Bonferroni-adjusted significance criterion of p < .008, but two of them reach significance at p < .05. Should we dismiss the trial as showing no benefit?  We can use the binomial theorem to check the probability of obtaining this result if the null hypothesis is true and the measures are independent: it is `r round(binom.test(2,6,.05)$p.value,3)`, clearly below the 5% alpha level. But what if the measures are intercorrelated? A thought experiment helps here. Suppose we had six measures that were intercorrelated at .95 - in effect they would all be measures of the same thing, and so we would expect the probability of a false positive to approximate that obtained for a single measure. Extending this logic in a more graded way, the higher the correlation between the measures, the more measures would need to reach the original significance criterion to maintain the overall significance level below .05. 
 
 A simulation script was developed to test these intuitions and to obtain estimates of:  
--(A) the minimum number of outcome variables in a suite that would maintain the overall false positive rate at 1 in 20, if each individual measure was evaluated at the significance criterion of .05. This we term MinNSig.  
+-(A) the minimum number of outcome variables in a suite that would maintain the overall familywise error rate at 1 in 20, if each individual measure was evaluated at the significance criterion of .05. This we term MinNSig.  
 -(B) the power to detect a true effect, if the criterion for rejection the null hypothesis was based on the value of MinNSig identified at step A.  
 
 <!--- main text follows computation script, as we need to refer to some of the outputs-->
@@ -243,7 +243,7 @@ write.csv(shorttab,paste0('data/MinNSig_method',method,'.csv'),row.names=F)
 
 ```{r powerForManyN,echo=F}
 
-#Next we compute the proportion of all runs in each condition that give p < .05. This corresponds to false positive rate when effect size is zero, and to power when effect size is > 0.shorttab <- read.csv('data/corrvars_Ns.csv')
+#Next we compute the proportion of all runs in each condition that give p < .05. This corresponds to familywise error rate when effect size is zero, and to power when effect size is > 0.shorttab <- read.csv('data/corrvars_Ns.csv')
 
 #insert a column for the Nvar = 1 case
 shorttab2 <- cbind(shorttab[,1],shorttab[2],shorttab[2:7])
@@ -272,7 +272,7 @@ for (e in myES){
       powertab$nsub[writerow]<-n
       powertab$corr[writerow]<-c
       powertab$obsES[writerow]<-round(mean(tempdata$obsES),4)
-      #put power for single variable in N1 column against corr = 0
+      #put power for single variable (V1) in N1 column against corr = 0
       if(c==0){
         powertab$N1[writerow] <-length(which(tempdata$V1<.05))/nrow(tempdata)
       }
@@ -427,7 +427,7 @@ For each set of conditions, on each run, a one-tailed t-test was conducted to ob
 To obtain MinNSig, the results were filtered to include only the runs where the null hypothesis was true, i.e. effect size = 0. Then, the proportion of p-values less than .05 was calculated for each rank for each number of outcome variables, to find the highest rank at which the overall proportion was less than .05. This is the MinNSig.  
 Table `r tabnum` gives a toy example of the logic, using the case where we have either 2 or 4 outcome measures. Columns V1 to V2 show p-values for the t-test comparing the two groups each of the 4 outcome measures. Columns r2.1 and r2.2 show the same p-values rank ordered for just the first two measures; columns r4.1 to r4.4 show the p-values rank ordered for all 4 outcomes. We can then count the number of p-values that are below .05 for all 1000 runs for each ranked position. With 2 outcomes, if we take just the first ranked (lowest) p-value, the probability of it being lower than .05 is around .10. For the 2nd ranked p-value, the probability drops below .05, to .002. Thus we set MinNSig to 2. 
 We can then turn to the case where we have four outcomes: the probability of the lowest p-value being below .05 is .185; the probability of the second lowest being below .05 is .014. Thus again, we set MinNSig to 2. As noted above, when the correlation between variables is zero, we can use the binomial theorem to compute values in the final row; however, when variables are intercorrelated, more p-values will be below .05, and so MinNSig may be higher.  
-Because MinNSig moves in quantum steps, the effective false positive rate is often lower than .05. For instance, in the example above with a suite of four outcome measures, MinNSig is set to 2 when there is no correlation between outcomes, but this gives p = .014, rather than .05. 
+Because MinNSig moves in quantum steps, the effective familywise error rate is often lower than .05. For instance, in the example above with a suite of four outcome measures, MinNSig is set to 2 when there is no correlation between outcomes, but this gives p = .014, rather than .05. 
 
 ```{r toydemo,echo=F}
 # Read in some pre-simulated data.  NB the simulated data file is enormous and is *not* saved on github. It is created in script below, which may take a couple of hours to run  We use it here just for convenience
@@ -468,7 +468,7 @@ Power using Adjust Nvar can be compared to:
 
 ### MinNSig
 `r tabnum <- tabnum+1`
-Table `r tabnum` shows results from a simulation of the Adjust Nvar approach, with the values in the body of the table showing MinNSig, the minimum number of measures that would maintain the overall false positive rate at 1 in 20, if each individual measure was evaluated at the significance criterion of .05.  It can be seen that the requirements for MinNSig are rather more stringent for Method L then for Method M. Because the t-test statistic used to determine p-values is adjusted for sample size, these values are independent of numbers of subjects. In principle, researchers could use Table `r tabnum` to specify in their research protocol the minimum number of outcomes that would reach their significance level in order for the null hypothesis to be rejected, and it is recommended that the values for Method L be preferred, as the assumptions behind this method seem more realistic than those of Method M. 
+Table `r tabnum` shows results from a simulation of the Adjust Nvar approach, with the values in the body of the table showing MinNSig, the minimum number of measures that would maintain the overall familywise error rate at 1 in 20, if each individual measure was evaluated at the significance criterion of .05.  It can be seen that the requirements for MinNSig are rather more stringent for Method L then for Method M. Because the t-test statistic used to determine p-values is adjusted for sample size, these values are independent of numbers of subjects. In principle, researchers could use Table `r tabnum` to specify in their research protocol the minimum number of outcomes that would reach their significance level in order for the null hypothesis to be rejected, and it is recommended that the values for Method L be preferred, as the assumptions behind this method seem more realistic than those of Method M. 
 
 ```{r tab-MinNSig,echo=F}
 shorttabL<-read.csv('data/MinNSig_methodL.csv')
@@ -488,11 +488,11 @@ ft2
 ### Power of Adjust Nvar approach
 
 `r fignum <- fignum+1`
-Full tables of results for all combinations of parameters are provided in the Appendix. Figure `r fignum` plots power vs false positive rate for different sizes of suite of outcome measures, including the case where a single outcome measure is used for comparison, using data from method M. 
+Full tables of results for all combinations of parameters are provided in the Appendix. Figure `r fignum` plots power vs familywise error rate for different sizes of suite of outcome measures, including the case where a single outcome measure is used for comparison, using data from method M. 
 
 
 ```{r power-vs-fp, echo=F,warning =F}
-# Function to plot power and false positive rate so we can compare efficiency of different approaches
+# Function to plot power and familywise error rate so we can compare efficiency of different approaches
 plotpower <- function(method){
 powertab<-read.csv(paste0('data/powertab_method',method,'.csv'))
 shortpower <- powertab[,1:11]
@@ -530,9 +530,8 @@ if (method=='L'){n1 <- 2}
     yrange <-fpcols
     xcol<-firstcol+nvar-1
     
-    plot(shortpower[xrange,xcol],shortpower[yrange,xcol],main=paste0('Method ',method,' ',effsize[e],' Effect Nvar:',alloutcomes[nvar]),col=shortpower$colorcol,pch=shortpower$shapecol,xlim=c(0,1),ylim=c(.001,.1),log='y',xlab='Power',ylab='FP rate (log scale)',cex=1.5)
+    plot(shortpower[xrange,xcol],shortpower[yrange,xcol],main=paste0('Method ',method,' ',effsize[e],' Effect Nvar:',alloutcomes[nvar]),col=shortpower$colorcol,pch=shortpower$shapecol,xlim=c(0,1),ylim=c(.001,.1),log='y',xlab='Power',ylab='Familywise error rate (log scale)',cex=1.5)
  
-   
     abline(v=.8,lty=3)
     abline(h=.05,lty=3)
     
@@ -553,7 +552,7 @@ plotpower('M')
 ```
 
 `r fignum <- fignum+1`
-For these plots, the small, medium and large effect sizes correspond to Cohen's d of .3, .5 and .7. An efficient method is one that gives power of .8 or above, and a false positive rate of .05 or less, i.e. the results should cluster in the bottom right quadrant. Power is dependent on sample size, as is evident from these plots where the unfilled figures, corresponding to the smallest sample size of 20 per group,fail to achieve power above .8, except at the highest effect size of .7.  It is evident from inspection that when method M is used, the Adjust NVar approach compares favourably with the single outcome (Nvar 1) case, when there are 4 or more outcome measures in a suite.  The power tends to be at least as high as for the single variable case, with lower false positive rates. Note, however, that the highest power is seen for the case where the variables are uncorrelated (black symbols), and this is an unrealistic scenario, especially for large suites of outcome measures. 
+For these plots, the small, medium and large effect sizes correspond to Cohen's d of .3, .5 and .7. An efficient method is one that gives power of .8 or above, and a familywise error rate of .05 or less, i.e. the results should cluster in the bottom right quadrant. Power is dependent on sample size, as is evident from these plots where the unfilled figures, corresponding to the smallest sample size of 20 per group,fail to achieve power above .8, except at the highest effect size of .7.  It is evident from inspection that when method M is used, the Adjust NVar approach compares favourably with the single outcome (Nvar 1) case, when there are 4 or more outcome measures in a suite.  The power tends to be at least as high as for the single variable case, with lower familywise error rates. Note, however, that the highest power is seen for the case where the variables are uncorrelated (black symbols), and this is an unrealistic scenario, especially for large suites of outcome measures. 
 
 
 Figure `r fignum` gives an equivalent plot for method L.  
@@ -567,7 +566,7 @@ plotpower('L')
   
 As noted above, method L is more realistic, but because the effect size is computed from a latent variable, with outcome measures as indirect indicators, the observed effect sizes for individual variables in a suite will vary, depending on the correlation between the variables. Here, the designations of effect size as small, medium and large corresponds to the effect on the unobserved latent variable used to generate the outcome measures (as shown in Figure 1). 
 
-Method L provides power estimates that are more in keeping with the single outcome case (see previous Figure), but achieves this level of power while providing a more stringent control of false positives. The Adjust Nvar approach works well when there are between 4 and 6 outcome measures that are moderately intercorrelated (r between .4 and .6). 
+Method L provides power estimates that are more in keeping with the single outcome case (see previous Figure), but achieves this level of power while providing a more stringent control of familywise error rate. The Adjust Nvar approach works well when there are between 4 and 6 outcome measures that are moderately intercorrelated (r between .4 and .6). 
 
 Finally, the Principal Components from each suite of outcomes were inspected, but they are not plotted here, as it was evident that they are reliably lower than the power obtained with the Adjust Nvar approach, regardless of the method used to generate the data (see Appendix for values).  
 
@@ -579,7 +578,7 @@ One advantage of this approach is that it is more compatible with trials of inte
 
 A second advantage of this approach is that once the values of MinNSig have been computed, it is very simple to apply, and could be used a priori to specify the criterion that will be used in a protocol, assuming the researcher already has a rough idea of the degree of intercorrelation between outcome measures. This may help guard against a tendency to explore different kinds of correction for multiple hypothesis testing only after viewing the data [@lazic2021].
 
-A third advantage is that in effect, by including multiple outcome measures, one can improve the efficiency of a study, in terms of the trade-off between power and false positives. If several outcome measures are seen as imperfect proxy indicators of an underlying latent construct, then we are in effect building in a degree of within-study replication if we require that more than one measure shows the same effect in the same direction before we reject the null hypothesis. 
+A third advantage is that in effect, by including multiple outcome measures, one can improve the efficiency of a study, in terms of the trade-off between power and familywise errors. If several outcome measures are seen as imperfect proxy indicators of an underlying latent construct, then we are in effect building in a degree of within-study replication if we require that more than one measure shows the same effect in the same direction before we reject the null hypothesis. 
 
 The results obtained with this approach depend crucially on assumptions embodied in the simulation that is used to derive predictions. Outcome measures simulated here are normally distributed, and quite uniform in their covariance structure. In Method L, which seems a more realistic approach than Method M, the set of correlated measures was generated by first creating a random normal deviate that was treated as the latent variable, and then creating outcome measures with a specific degree of correlation with the latent variable. It would be possible to generate datasets with different underlying covariance structures to be tested in the same way, but that is beyond the scope of this paper. 
 
@@ -595,7 +594,7 @@ powerM$obsES<-round(powerM$obsES,3)
 
 ft<-flextable(powerM)
 ft<- fit_to_width(ft, max_width =8 )
-ft<-set_caption(ft,'Power table for Method M (where ES = 0, values are false positive rate)')
+ft<-set_caption(ft,'Power table for Method M (where ES = 0, values are familywise error rate)')
 ft
 ```
   
@@ -605,7 +604,7 @@ powerL<-read.csv('data/powertab_methodL.csv')
 powerL$obsES<-round(powerL$obsES,3)
 ft<-flextable(powerL)
 ft<- fit_to_width(ft, max_width =8 )
-ft<-set_caption(ft,'Power table for Method L (where ES = 0, values are false positive rate)')
+ft<-set_caption(ft,'Power table for Method L (where ES = 0, values are familywise error rate)')
 ft
 ```
 
