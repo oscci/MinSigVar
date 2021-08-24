@@ -397,20 +397,18 @@ where r is the correlation between latentvar and each outcome, and latentvar is 
 powertab<-read.csv('data/powertab_methodL.csv')
 method='L'
 fignum<-fignum+1
-plot(powertab$ES,powertab$obsES,col=as.factor(powertab$corr),xlab='True ES',ylab='Observed ES',main=paste0('Figure ',fignum,': Observed effect sizes with Method ',method))
+plot(powertab$ES,powertab$obsES,col=as.factor(powertab$corr),xlab='True ES in latent factor',ylab='Observed ES',main=paste0('Figure ',fignum,': Observed effect sizes with Method ',method))
 abline(a=0,b=1,lty=2)
 legend(.05,.6, legend=c('0','.2','.4','.6','.8'),title='correlation',
        col=1:5, lty=1, cex=0.8)
-if(method=='L'){
-text(.1,.2,'For Method L, True ES \nis effect size for latent factor',cex=.8)
-}
+
 
 ```
 
-For Method L, the observed effect size for the outcome measures will be lower than the effect size specified for the latent variable, because they are imperfect indicators. As shown in Figure `r fignum`, in the limiting case where the correlation is specified as zero, the observed effect size for observed outcomes will be zero, regardless of the effect size of the latent variable, because they do not share any variance with the latent variable. As the correlation between outcomes increases, the observed effect sizes approaches the true effect size in the latent variable. This made it potentially problematic when comparing power of a single outcome measure with a suite of measures, as this requires us to specify an effect size. The average observed effect size for all measures in a given condition was computed, and used as the basis for comparisons of efficiency between single and multiple measure scenarios. 
+For Method L, the observed effect size for the outcome measures will be lower than the effect size specified for the latent variable, because they are imperfect indicators. As shown in Figure `r fignum`, in the limiting case where the correlation is specified as zero, the observed effect size for observed outcomes will be zero, regardless of the effect size of the latent variable, because they do not share any variance with the latent variable. As the correlation between outcomes increases, the observed effect size approaches the true effect size in the latent variable. This made it potentially problematic when comparing power of a single outcome measure with a suite of measures, as this requires us to specify an effect size, and this depends on the intercorrelation between outcoms. The average observed effect size for all measures in a given condition was computed, and used as the basis for comparisons of efficiency between single and multiple measure scenarios. 
 
 ### Data reduction    
-For both Method M and L, principal components were computed for all outcome variables, using the base R function _prcomp_ from the _stats_ package. The size of the suite of outcome variables entered into the analysis ranged from 2 to 12 in step of 2. Thus PC2 is a principal component based on the first two outcome measures, PC4 based on the first four outcome measures, and so on.  
+The size of the suite of outcome variables entered into later analysis ranged from 2 to 12 in steps of 2. For both Method M and L, principal components were computed for all outcome variables, using the base R function _prcomp_ from the _stats_ package.  Thus PC2 is a principal component based on the first two outcome measures, PC4 based on the first four outcome measures, and so on.  
 Power of analyses based on the principal components was compared with power obtained using the Adjust Nvar approach, as specified below. 
 
 
@@ -418,7 +416,7 @@ Power of analyses based on the principal components was compared with power obta
 1000 simulations were run for each combination of:  
 - sample size per group, ranging from 20 to 110 in steps of 30  
 - correlation between outcome variables, ranging from .2 to .8 in steps of .2  
-- true effect size, taking values of 0, .3, .5, or .7. 
+- true effect size, taking values of 0, .3, .5, or .7.  
 - Method to generate data, either M or L  
 
 The data generated from each combination of conditions was used to derive results for different sizes of suites of outcome variables, ranging from 2 to 12 in steps of 2. Thus, the analysis was first conducted on the first 2 outcome measures, then on the first 4 outcome measures, and so on. 
@@ -426,8 +424,9 @@ The data generated from each combination of conditions was used to derive result
 For each set of conditions, on each run, a one-tailed t-test was conducted to obtain a p-value for the comparison between C and I groups, assuming C would be lower. The p-values for outcome measures were rank ordered for each run and each suite size. 
 
 ### Identifying MinNSig
-To obtain MinNSig, the results were filtered to include only the runs where the null hypothesis was true, i.e. effect size = 0. Then, the proportion of p-values less than .05 was calculated for each rank for each number of outcome variables, to find the highest rank at which the overall proportion was less than .05. This is the MinNSig. Table 2 gives a toy example of the logic, using the case where we have either 2 or 4 outcome measures. Columns V1 to V2 show p-values for the t-test comparing the two groups each of the 4 outcome measures. Columns r2.1 and r2.2 show the same p-values rank ordered for just the first two measures; columns r4.1 to r4.4 show the p-values rank ordered for all 4 outcomes. We can then count the number of p-values that are below .05 for all 1000 runs for each ranked position. With 2 outcomes, if we take just the first ranked (lowest) p-value, the probability of it being lower than .05 is around .10. For the 2nd ranked p-value, the probability drops below .05, to .002. Thus we set MinNSig to 2. 
-We can then turn to the case where we have four outcomes: the probability of the lowest p-value being below .05 is .185; the probability of the second lowest being below .05 is .014. Thus again, we set MinNSig to 2. As noted above, when the correlation between variables is zero, we can use the binomial theorem to compute values in the final row; however, when variables are intercorrelated, more p-values will be below .05, and so MinNSig may be higher. 
+To obtain MinNSig, the results were filtered to include only the runs where the null hypothesis was true, i.e. effect size = 0. Then, the proportion of p-values less than .05 was calculated for each rank for each number of outcome variables, to find the highest rank at which the overall proportion was less than .05. This is the MinNSig.  
+Table `r tabnum` gives a toy example of the logic, using the case where we have either 2 or 4 outcome measures. Columns V1 to V2 show p-values for the t-test comparing the two groups each of the 4 outcome measures. Columns r2.1 and r2.2 show the same p-values rank ordered for just the first two measures; columns r4.1 to r4.4 show the p-values rank ordered for all 4 outcomes. We can then count the number of p-values that are below .05 for all 1000 runs for each ranked position. With 2 outcomes, if we take just the first ranked (lowest) p-value, the probability of it being lower than .05 is around .10. For the 2nd ranked p-value, the probability drops below .05, to .002. Thus we set MinNSig to 2. 
+We can then turn to the case where we have four outcomes: the probability of the lowest p-value being below .05 is .185; the probability of the second lowest being below .05 is .014. Thus again, we set MinNSig to 2. As noted above, when the correlation between variables is zero, we can use the binomial theorem to compute values in the final row; however, when variables are intercorrelated, more p-values will be below .05, and so MinNSig may be higher.  
 Because MinNSig moves in quantum steps, the effective false positive rate is often lower than .05. For instance, in the example above with a suite of four outcome measures, MinNSig is set to 2 when there is no correlation between outcomes, but this gives p = .014, rather than .05. 
 
 ```{r toydemo,echo=F}
@@ -449,6 +448,7 @@ toybit <- rbind(toybit[1:10,],dotrow,toybit[11:12,])
 toybit[14,]<-c('N < .05',rep('.',4),100,2,185,14,0,0)
 toybit[15,]<-c('p < .05',rep('.',4),.1,.002,.185,.014,0,0)
 ft <- flextable(toybit)
+ft<- fit_to_width(ft, max_width =8 )
 mycaption <- paste0('Table ',tabnum,': Demonstration of how MinNSig is determined')
 ft <- set_caption(ft,mycaption)
 ft
@@ -474,11 +474,11 @@ Table `r tabnum` shows results from a simulation of the Adjust Nvar approach, wi
 shorttabL<-read.csv('data/MinNSig_methodL.csv')
 shorttabM<-read.csv('data/MinNSig_methodM.csv')
 ft<-flextable(shorttabM)
-mycap <- paste0('Table ',tabnum,': Values of MinNSig from Method M')
+mycap <- paste0('Table ',tabnum,'A: Values of MinNSig from Method M')
 ft <- set_caption(ft,mycap)
 ft
 ft2<-flextable(shorttabL)
-mycap <- paste0('Table ',tabnum,': Values of MinNSig from Method L')
+mycap <- paste0('Table ',tabnum,'B: Values of MinNSig from Method L')
 ft2 <- set_caption(ft2,mycap)
 ft2
 
@@ -498,7 +498,7 @@ powertab<-read.csv(paste0('data/powertab_method',method,'.csv'))
 shortpower <- powertab[,1:11]
 #compute N1 values using pwr
 for (i in 1:nrow(shortpower)){
- if(shortpower$corr[i]==.8){
+ if(shortpower$corr[i]==0){
   shortpower$N1[i] <-pwr.t.test(n=shortpower$nsub[i],d=shortpower$obsES[i],sig.level=.05,alternative='greater')$power
  }
 }
@@ -565,17 +565,17 @@ plotpower('L')
 
 ```
   
-As noted above, method L is more realistic, but because the effect size is computed from a latent variable, with outcome measures as indirect indicators, the observed effect sizes for individual variables in a suite will vary, depending on the correlation between the variables. Here, the designations of effect size as small, medium and large corresponds to the effect on the unobserved latent variable used to generate the outcome measures. 
+As noted above, method L is more realistic, but because the effect size is computed from a latent variable, with outcome measures as indirect indicators, the observed effect sizes for individual variables in a suite will vary, depending on the correlation between the variables. Here, the designations of effect size as small, medium and large corresponds to the effect on the unobserved latent variable used to generate the outcome measures (as shown in Figure 1). 
 
-Method L provides power estimates that are more in keeping with the single outcome case (see previous figure), but achieves this level of power while providing a more stringent control of false positives. The Adjust Nvar approach works well when there are between 4 and 6 outcome measures that are moderately intercorrelated (r between .4 and .6). 
+Method L provides power estimates that are more in keeping with the single outcome case (see previous Figure), but achieves this level of power while providing a more stringent control of false positives. The Adjust Nvar approach works well when there are between 4 and 6 outcome measures that are moderately intercorrelated (r between .4 and .6). 
 
 Finally, the Principal Components from each suite of outcomes were inspected, but they are not plotted here, as it was evident that they are reliably lower than the power obtained with the Adjust Nvar approach, regardless of the method used to generate the data (see Appendix for values).  
 
 ## Discussion
 
-The logic of conventional multiple testing is turned on its head with the Adjust Nvar approach, in that instead of adjusting the p-value used for significance (as in the Bonferroni correction, or methods based on False Discovery Rate), we adjust the number of individual outcome measures that we need to reach the intended significance criterion.  This value can be easily computed using the binomial theorem if the outcome measures are uncorrelated, but in the context of intervention trials that is an unrealistic assumption. 
+The logic of conventional multiple testing is turned on its head with the Adjust Nvar approach, in that instead of adjusting the p-value used for significance (as in the Bonferroni correction, or methods based on False Discovery Rate), we adjust the number of individual outcome measures that we need to reach the intended significance criterion.  This value can be easily computed using the binomial theorem for a given suite size of outcomes if the measures are uncorrelated, but in the context of intervention trials that is an unrealistic assumption. 
 
-One advantage of this approach is that it is more compatible with trials of interventions that are expected to affect a range of related processes, as is common in some fields such as education or speech and language therapy. In such cases, the need to specify a single primary outcome tends to create difficulties, because it is often unclear which of a set of outcomes is likely to show an effect. Note that the Adjust Nvar approach does not give the researcher free rein to engage in p-hacking: the larger the suite of measures included in the study, the higher the value of MinNSig will be. It does, however, remove the need to put all one's eggs in one basket by pre-specifying one measure as the primary outcome. 
+One advantage of this approach is that it is more compatible with trials of interventions that are expected to affect a range of related processes, as is common in some fields such as education or speech and language therapy. In such cases, the need to specify a single primary outcome tends to create difficulties, because it is often unclear which of a suite of outcomes is likely to show an effect. Note that the Adjust Nvar approach does not give the researcher free rein to engage in p-hacking: the larger the suite of measures included in the study, the higher the value of MinNSig will be. It does, however, remove the need to put all one's eggs in one basket by pre-specifying one measure as the primary outcome. 
 
 A second advantage of this approach is that once the values of MinNSig have been computed, it is very simple to apply, and could be used a priori to specify the criterion that will be used in a protocol, assuming the researcher already has a rough idea of the degree of intercorrelation between outcome measures. This may help guard against a tendency to explore different kinds of correction for multiple hypothesis testing only after viewing the data [@lazic2021].
 
@@ -588,18 +588,23 @@ The results obtained with this approach depend crucially on assumptions embodied
 # Appendix
 
 Computed power for Method M
-```{r getpowertabs,echo=F}
+```{r getpowertabsM,echo=F}
 powerM<-read.csv('data/powertab_methodM.csv')
-powerL<-read.csv('data/powertab_methodL.csv')
+
 powerM$obsES<-round(powerM$obsES,3)
-powerL$obsES<-round(powerL$obsES,3)
+
 ft<-flextable(powerM)
-ft <- fontsize(ft, size = 8,part="all")
+ft<- fit_to_width(ft, max_width =8 )
 ft<-set_caption(ft,'Power table for Method M (where ES = 0, values are false positive rate)')
 ft
-
+```
+  
+  
+```{r powertabsL,echo=F}  
+powerL<-read.csv('data/powertab_methodL.csv')
+powerL$obsES<-round(powerL$obsES,3)
 ft<-flextable(powerL)
-ft <- fontsize(ft, size = 8,part="all")
+ft<- fit_to_width(ft, max_width =8 )
 ft<-set_caption(ft,'Power table for Method L (where ES = 0, values are false positive rate)')
 ft
 ```
