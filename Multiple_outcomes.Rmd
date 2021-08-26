@@ -18,6 +18,7 @@ require(flextable)
 require(MASS)
 require(pwr)
 require(graphics)
+require(effsize)
 fignum <- 0
 tabnum <-0
 
@@ -54,34 +55,65 @@ A simulation script was developed to test these intuitions and to obtain estimat
 # The average intercorrelation between maxn variables is sqrt(r)
 # The columns after maxn contain the principal component scores from the different levels of N outcomes for each subject, e.g. PCA2, PCA4, and PCA6, if we are considering outcome sets of 2, 4 or 6 variables. 
 
-makecorL <- function(N,outcomes,r,mu,sd){ #we generate raw data for max value of outcomes, and then create principal components for all N outcome values
+makecorL <- function(N,outcomes,r,e,sd){ #we generate raw data for max value of outcomes, and then create principal components for all N outcome values
   #  NB outcomes is a vector of possible N outcomes - e.g. c(2, 4, 6) if you want to simulate data to consider 2, 4, or 6 outcomes
   # we always simulate individual variables up to the maximum number of outcomes, e.g. in examples above, would simulate 6 outcome variables. These are in the first columns.
   # We also simulate a principal component (PC) for each outcome set, i.e. a PCA based just on variables 1-2, and another based on variables 1-4, and another on variables 1-6. 
   
   maxn <- max(outcomes)
-  rvals <-data.frame(matrix(NA,nrow=N,ncol=(1+maxn+length(outcomes))))
-  ncols <- ncol(rvals)
-  base <- rnorm(N,mu,sd)
+  C <-data.frame(matrix(NA,nrow=N,ncol=(1+maxn+length(outcomes))))
+  colnames(C)<-c(paste0("V",1:maxn),paste0("PC",outcomes),'base')
+  I <-C #same structure of data frame for intervention data
+  ncols <- ncol(rvalsI)
+  baseC <- rnorm(N,0,sd)
+  baseI <- rnorm(N,e,sd)
   for (v in 1:maxn){
-    rvals[,v]<-r*base+sqrt(1-r^2)*rnorm(N,0,1)
+    C[,v]<-r*baseC+sqrt(1-r^2)*rnorm(N,0,1)
+    I[,v]<-r*baseI+sqrt(1-r^2)*rnorm(N,0,1)
   }
-  thiscol<-maxn #we will add PCs as next set of cols
-  for(o in outcomes){
-    thiscol<-thiscol+1
-    p<- prcomp(rvals[,1:o])$rotation[,1]
-    rvals[,thiscol]<-apply(rvals[,1:o],1,function(x) sum(p*x)) #compute principal component score for each row of data
-  }
+  C[,ncols]<-baseC #can be used for checking correlations - otherwise not used
+  I[,ncols]<-baseI
+  cond <- c(rep("C",N),rep("I",N))
+  allvals <-cbind(rbind(C,I),cond)
   
-  r1 <-cor(rvals[,1],rvals[,(maxn+1)])
-  if(r1<0)
-  {rvals[,(maxn+1):(ncols-1)]<-(-1)*rvals[,(maxn+1):(ncols-1)]} #if correlation between 1st var and PC is negative, switch polarity of PCs
-  
-  rvals[,ncols]<-base #just used for checking correlations
+  #create principal components: this based on I and C vals combined
+    thiscol<-maxn #we will add PCs as next set of cols
+     n2 <- 2*nrow(C)
+        for(o in outcomes){
+          
+          varboth <-allvals[,1:o] #both groups, N columns for this outcome suite
+
+          pwts<- prcomp(varboth)$rotation[,1]
+      #principal component may have opposite polarity, so flip if wts negative
+          if(mean(pwts)<0){pwts<-pwts*(-1)}
+           
+          mypc<-apply(varboth[,1:o],1,function(x) sum(pwts*x)) #compute principal component score for each row of data
+          thiscol<-thiscol+1
+          allvals[,thiscol]<-mypc
+         
+        }
+        
+          #compute average observed effect size
+        dd<-0
+        for (d in 1:maxn){
+          dd<-dd+cohen.d(allvals[,d]~allvals$cond)$estimate
+        }
+        allout<-(-dd/maxn)  #first value of allout will be average effect size from all 12 simulated vars in this condition
+    
+          
+        #get pvalue from t-test for all variables and PCs
+          for (v in 1:(maxn+length(outcomes))) {
+            tempt <- t.test(allvals[,v]~allvals$cond,alternative='less') #one-tailed t-test ; predict C<I
+            allout<-c(allout,tempt$p.value)
+            
+          }
+
+
   #cor(rvals) #checking correlations
+
   #NB principal component correlates higher with individual vars than the base component - 
   #presumably because PC is derived from the data.
-  return(rvals[,1:(ncols-1)]) #we don't save the base value, which is latent
+  return(allout) #we don't save the base value, which is latent
 }
 
 ```
@@ -94,28 +126,56 @@ makecorL <- function(N,outcomes,r,mu,sd){ #we generate raw data for max value of
 # The average intercorrelation between maxn variables is sqrt(r)
 # The columns after maxn contain the principal component scores from the different levels of N outcomes for each subject, e.g. PCA2, PCA4, and PCA6, if we are considering outcome sets of 2, 4 or 6 variables. 
 
-makecorM <- function(N,outcomes,r,mu,sd){ 
+makecorM <- function(N,outcomes,r,e,sd){ 
   #Alternative approach: just generate correlated vars with mu set to ES 
   # We also simulate a principal component (PC) for each outcome set, i.e. a PCA based just on variables 1-2, and another based on variables 1-4, and another on variables 1-6. 
   
   maxn <- max(outcomes)
-  rvals <-data.frame(matrix(NA,nrow=N,ncol=(maxn+length(outcomes))))
-  ncols <- ncol(rvals)
+  C <-data.frame(matrix(NA,nrow=N,ncol=(1+maxn+length(outcomes))))
+  colnames(C)<-c(paste0("V",1:maxn),paste0("PC",outcomes),'base')
+  I <-C #same structure of data frame for intervention data
+  ncols <- ncol(rvalsI)
+  
   cormat <-matrix(r,nrow=maxn,ncol=maxn)
   diag(cormat) <- 1
-  rvals[,1:maxn] <- mvrnorm(N,rep(mu,maxn),cormat)
-  thiscol<-maxn #we will add PCs as next set of cols
-  for(o in outcomes){
-    thiscol<-thiscol+1
-    p<- prcomp(rvals[,1:o])$rotation[,1]
-    rvals[,thiscol]<-apply(rvals[,1:o],1,function(x) sum(p*x)) #compute principal component score for each row of data
-  }
+  C[,1:maxn] <- mvrnorm(N,rep(0,maxn),cormat)
+  I[,1:maxn] <- mvrnorm(N,rep(e,maxn),cormat)
+  cond <- c(rep("C",N),rep("I",N))
+  allvals <-cbind(rbind(C,I),cond)
   
-  
-  #cor(rvals) #checking correlations
-  
-  return(rvals)
-  
+ #create principal components: this based on I and C vals combined
+    thiscol<-maxn #we will add PCs as next set of cols
+        for(o in outcomes){
+          
+          varboth <-allvals[,1:o] #both groups, N columns for this outcome suite
+
+          pwts<- prcomp(varboth)$rotation[,1]
+      #principal component may have opposite polarity, so flip if wts negative
+          if(mean(pwts)<0){pwts<-pwts*(-1)}
+           
+          mypc<-apply(varboth[,1:o],1,function(x) sum(pwts*x)) #compute principal component score for each row of data
+          thiscol<-thiscol+1
+          allvals[,thiscol]<-mypc
+         
+        }
+        
+          #compute average observed effect size
+        dd<-0
+        for (d in 1:maxn){
+          dd<-dd+cohen.d(allvals[,d]~allvals$cond)$estimate
+        }
+        allout<-(-dd/maxn)  #first value of allout will be average effect size from all 12 simulated vars in this condition
+    
+          
+        #get pvalue from t-test for all variables and PCs
+          for (v in 1:(maxn+length(outcomes))) {
+            tempt <- t.test(allvals[,v]~allvals$cond,alternative='less') #one-tailed t-test ; predict C<I
+            allout<-c(allout,tempt$p.value)
+            
+          }
+
+
+return(allout)  
 }
 
 ```
@@ -142,69 +202,67 @@ rankp <- function(p.df,outcomes){
 ```{r createp,echo=F}
 # For each run of the simulation, a one-tailed t-test is used to compare groups I and C; we can use a one-tailed test as we assume the intervention group (I) will obtain a higher score than the control group (C).  This generates a huge data frame of p-values, one per run, covering all values of effect size, correlation and sample size. P-values are given for individual variables, and for the principal components. 
 
-#Need to run this chunk for method L and method M to create files for knitted doc.
+
 
 skipsim <- 1 #we can skip the simulation process and read data from previous run if we set skipsim to one 
-method <- "L" #simulation method L, use latent factor; method M, use MASS
+#methodlist <-c("L","M")#simulation method L, use latent factor; method M, use MASS
+methodlist<-"M"
+for (m in 1:length(methodlist)){
+  
+method <- methodlist[m] 
 
-# If skipsim is 0 and nsim is 1000, this will take a few hours to run
+# If skipsim is 0 and nsim is 1000, this takes about 50 min to run on my mac
+
 nsim <- 1000 #number of runs for each combination of mycorr, mynvar,myES and myN.
 #for final version, have v. large value - for testing try with smaller nsims
 
 mycorr <- c(0,.2,.4,.6,.8) #intercorrelations between variables to consider
-nstep<-2
+
+#usecorr <- c(.0001,.2,.4,.6,.8)#we use lower val of .0001 as equivalent to null as this makes it possible to get correct ES when we use method L
+nstep<-1
 outcomes <- seq(2,12,nstep) #number of outcome variables to consider
 maxn <- max(outcomes) #we always create max number of variables, and then use subsets of this to examine smaller Ns
 myES <- c(0,.3,.5,.7) #effect sizes to consider
 myN <- c(20,50,80,110) #Ns per group to consider
-mypname <-paste0('p_1sided_method',method,'_allN_allES_allcorr_maxn',maxn,'_nsim',nsim) #filename to save csv file with simulated p-values (saves time when many runs used)
+
+mypname <-paste0('p_1sided_method',method,'_allN_allES_allcorr_maxn',maxn,'_nsim',nsim,'_nstep',nstep) #filename to save csv file with simulated p-values (saves time when many runs used)
 myfolder <-'data/'
 
 
 if(skipsim==0){ 
   #set up dataframe for holding pvalues
+ 
+  
   p.df <- data.frame(matrix(NA,nrow=nsim*length(mycorr)*length(myN)*length(myES),ncol=maxn+5+length(outcomes)))
+   p.df[1:4] <- expand.grid(1:nsim,myES,myN,mycorr)
   colnames(p.df) <-c('run','ES','Nsub','corr','obsES',paste0('V',1:maxn),paste0('PC',outcomes) ) 
-  #The last set of columns hold the smallest p-value obtained for each value of outcomes
+  p.df$run <- 1:nrow(p.df)
   coloffset <- which(colnames(p.df)=='V1')-1
   thisrow <- 0
-  for (s in 1:nsim){
-    for (c in mycorr){
-      for (e in myES){
-        for(n in myN){
-          thisrow <- thisrow+1
-          p.df$run[thisrow] <- s
-          p.df$corr[thisrow] <- c
-          p.df$ES[thisrow]<-e
-          p.df$Nsub[thisrow]<-n
+  
+ # !loop seems unavoidable!
+ for (c in 1:length(mycorr) ){
+      u <-usecorr[c] #value with .0001 instead of zero
+      r <- mycorr[c]
+       for (e in myES){
+         for (n in myN){
+    
+       myf<-filter(p.df,ES==e,Nsub==n,corr==r)
+       if(method=="M"){
+       p.df[myf$run,5:(ncol(p.df))]<-t(apply(myf,1, function(x) makecorM(n,outcomes,r,e,1)) )
+       }
+       if(method=="L"){
+       p.df[myf$run,5:(ncol(p.df))]<-t(apply(myf,1, function(x) makecorL(n,outcomes,r,e,1)) )
+       }
+     }
+   }
+ }
+
           
-          if(method=="L"){
-            C <- makecorL(n,outcomes,sqrt(c),0,1) #intercorrelations will be mycor^2
-            I <- makecorL(n,outcomes,sqrt(c),e,1) #group B is intervention group: has ES added to base value
-          }
-          if(method=="M"){
-            C <- makecorM(n,outcomes,c,0,1) 
-            I <- makecorM(n,outcomes,c,e,1) #group B is intervention group: has ES added 
-          }
-          
-          for (v in 1:(maxn+length(outcomes))) {
-            tempt <- t.test(C[,v],I[,v],alternative='less') #one-tailed t-test ; predict C<I
-            p.df[thisrow,(v+coloffset)]<-tempt$p.value
-            
-          }
-          allC<-pull(C[,1:maxn]) #converts all df values to vector
-          allI<-pull(I[,1:maxn])
-          p.df$obsES[thisrow]<-(mean(allI)-mean(allC))/mean(sd(c(allC),sd(allI)))
-        }
-      }
-    }
-  }
   write.csv(p.df,paste0(myfolder,mypname,'.csv'),row.names=F)
   # we now have p.df, which is a big dataframe with p-values from all the simulations, for max N variables at all corrs, effect sizes and sample sizes.
 }
-if(skipsim==1){
-  
-  p.df<-read.csv(paste0(myfolder,mypname,'.csv'))
+
 }
 ```
 
@@ -213,6 +271,11 @@ if(skipsim==1){
 ```{r nvartab, echo=F}
 # The next step is to rank order the p-values for each outcome set size. 
 # The function to do this is defined in the initial block of functions
+for (m in 1:length(methodlist)){
+  method <- methodlist[m] 
+  mypname <-paste0('p_1sided_method',method,'_allN_allES_allcorr_maxn',maxn,'_nsim',nsim,'_nstep',nstep) #filename to save csv file with simulated p-values (saves time when many runs used)
+myfolder <-'data/'
+  p.df<-read.csv(paste0(myfolder,mypname,'.csv'))
 
 p.df <-rankp(p.df,outcomes)
 
@@ -241,15 +304,19 @@ for (j in 1:length(mycorr)){
   }
 }
 write.csv(shorttab,paste0('data/MinNSig_method',method,'.csv'),row.names=F)
+}
 ```
 
 
 ```{r powerForManyN,echo=F}
-
+for (m in 1:length(methodlist)){
+    method <- methodlist[m] 
+mysname <-paste0('data/MinNSig_method',method,'.csv')
+shorttab <- read.csv(mysname)
 #Next we compute the proportion of all runs in each condition that give p < .05. This corresponds to familywise error rate when effect size is zero, and to power when effect size is > 0.shorttab <- read.csv('data/corrvars_Ns.csv')
 
 #insert a column for the Nvar = 1 case
-shorttab2 <- cbind(shorttab[,1],shorttab[2],shorttab[2:7])
+shorttab2 <- cbind(shorttab[,1],shorttab[2],shorttab[2:ncol(shorttab)])
 colnames(shorttab2)[1:2]<-c('corr','N1')
 shorttab2[,2]<-1
 
@@ -300,7 +367,7 @@ for (e in myES){
 # We can save this to disk, though it's not really necessary, as it can be created quickly
 
 write.csv(powertab,paste0('data/powertab_method',method,'.csv'),row.names=F)
-
+}
 ```
 
 
@@ -312,6 +379,7 @@ write.csv(powertab,paste0('data/powertab_method',method,'.csv'),row.names=F)
 ```{r makelongform,echo=F}
 
 # For alternative plots, we need to convert to long form
+# This is not currently used in the writeup; just retained for possible future use
 powertab[,1]<-as.factor(powertab[,1])
 powertab[,4]<-as.factor(powertab[,4])
 
@@ -384,19 +452,23 @@ q <-q + facet_grid(vars(Nvar),vars(rlabel))
 
 Correlated variables were simulated using in the R programming language [@rcoreteam2020]. The script to generate and analyse simulated data is available on https://github.com/oscci/MinSigVar, and more technical details are provided in the Appendix. Two approaches to modeling correlated variables were compared, Method M and Method L.  
 
-### Method M
-Method M uses the _mvrnorm_ function of the _MASS_ package to generate a set of 12 outcome variables with a specified covariance matrix. For simplicity, all variables were simulated as random normal deviates with SD of 1, and the covariance matrix had a prespecified correlation, r, in all off-diagonal elements. The correlation varied across runs from 0 to .8 in steps of .2, and the number of simulated cases varied from 20 to 110 in steps of 30. Outcomes for Intervention (I) and Control (C) groups differed only in terms of the mean, which was always zero for the group C, and a given effect size, e, for group I. 
+### Method for simulating outcomes
+The _mvrnorm_ function of the _MASS_ package was used to generate a set of 12 outcome variables with a specified covariance matrix. For simplicity, all variables were simulated as random normal deviates with SD of 1, and the covariance matrix had a prespecified correlation, r, in all off-diagonal elements. The correlation varied across runs from 0 to .8 in steps of .2, and the number of simulated cases varied from 20 to 110 in steps of 30. Outcomes for Intervention (I) and Control (C) groups differed only in terms of the mean, which was always zero for the group C, and a given effect size, e, for group I. The average observed effect size for all measures in a given condition was computed, and used as the basis for comparisons of efficiency between single and multiple measure scenarios. 
 
-### Method L
-Method M is simple but potentially unrealistic as a representation of real data, because it implies that an intervention affects the whole set of outcome measures independently to a similar extent. With Method M it is possible to have a set of outcomes that are independent of one another yet all having the same effect size, which is unlike real-world data. Method L was designed to give a more realistic simulation, in which the set of 12 outcome measures are seen as indicators of an underlying latent variable, which mediates the intervention effect.  In Method L, a latent variable is first simulated, with an effect size of either zero, for group C, or e for group I. Observed outcome measures are then simulated as having a specific correlation with the latent variable - i.e. the correlation determines the extent to which the outcomes act as indicators of the latent variable. This is achieved using the formula:  
+This method is simple but potentially unrealistic because it is possible to have a set of outcomes that are independent of one another (r = 0) yet all having the same effect size, which is unlike real-world data. 
+
+An alternative approach was evaluated, in which the set of 12 outcome measures are simulated as indicators of an underlying latent variable, which mediates the intervention effect.  This can be achieved by first simulating a latent variable, with an effect size of either zero, for group C, or e for group I. Observed outcome measures are then simulated as having a specific correlation with the latent variable - i.e. the correlation determines the extent to which the outcomes act as indicators of the latent variable. This can be achieved using the formula:  
 - r * latentvar + sqrt(1-r^2)*err  
 
-where r is the correlation between latentvar and each outcome, and latentvar is a vector of random normal deviates that is the same for each outcome variable, while err is a vector of random normal deviates that differs for each outcome variable.  Note that when outcome variables are generated this way, the mean intercorrelation between them will be r^2^.  Thus if we want a set of outcome variables with mean intercorrelation of .4, we need to specify r in the formula above as sqrt(r) = .632. 
+where r is the correlation between latentvar and each outcome, and latentvar is a vector of random normal deviates that is the same for each outcome variable, while err is a vector of random normal deviates that differs for each outcome variable. Note that when outcome variables are generated this way, the mean intercorrelation between them will be r^2^.  Thus if we want a set of outcome variables with mean intercorrelation of .4, we need to specify r in the formula above as sqrt(r) = .632. Furthermore, the effect size for the simulated variables will be lower than for the latent variable: to achieve an effect size, e, for the outcome variables, it is necessary to specify the effect size for the latent variable, e~l~, as e/r^2^. When this is done, the results with this method are closely similar to those obtained using MASS. The exception is for the case where r = 0, which is not computuable with this method - i.e. it is not possible to have a set of outcomes that are indicators of the same latent factor but which are uncorrelated. As noted above, the case where r = 0 is unrealistic in any case, and so for these simulations, the lowest value of r that was included was r = .2. 
 
 
 ```{r MethodLobsES,echo=F}
 #check how obsES relates to trueES -expect to be same for Method M, lower for L
 # [The ES and observed ES fall on a straight line  for Method M].
+# This chunk is superseded - it was used when evaluating the latent variable method to check how effect sizes on outcome variables compared with the specified effect size. 
+runme <- 0
+if(runme ==1){
 powertab<-read.csv('data/powertab_methodL.csv')
 method='L'
 fignum<-fignum+1
@@ -404,14 +476,12 @@ plot(powertab$ES,powertab$obsES,col=as.factor(powertab$corr),xlab='True ES in la
 abline(a=0,b=1,lty=2)
 legend(.05,.6, legend=c('0','.2','.4','.6','.8'),title='correlation',
        col=1:5, lty=1, cex=0.8)
-
+}
 
 ```
 
-For Method L, the observed effect size for the outcome measures will be lower than the effect size specified for the latent variable, because they are imperfect indicators. As shown in Figure `r fignum`, in the limiting case where the correlation is specified as zero, the observed effect size for observed outcomes will be zero, regardless of the effect size of the latent variable, because they do not share any variance with the latent variable. As the correlation between outcomes increases, the observed effect size approaches the true effect size in the latent variable. This made it potentially problematic when comparing power of a single outcome measure with a suite of measures, as this requires us to specify an effect size, and this depends on the intercorrelation between outcoms. The average observed effect size for all measures in a given condition was computed, and used as the basis for comparisons of efficiency between single and multiple measure scenarios. 
-
 ### Data reduction    
-The size of the suite of outcome variables entered into later analysis ranged from 2 to 12 in steps of 2. For both Method M and L, principal components were computed for all outcome variables, using the base R function _prcomp_ from the _stats_ package.  Thus PC2 is a principal component based on the first two outcome measures, PC4 based on the first four outcome measures, and so on.  
+The size of the suite of outcome variables entered into later analysis ranged from 2 to 12. For each suite size, principal components were computed from data from the C and I groups combined, using the base R function _prcomp_ from the _stats_ package.  Thus PC2 is a principal component based on the first two outcome measures, PC4 based on the first four outcome measures, and so on.  
 Power of analyses based on the principal components was compared with power obtained using the Adjust Nvar approach, as specified below. 
 
 
@@ -422,7 +492,7 @@ Power of analyses based on the principal components was compared with power obta
 - true effect size, taking values of 0, .3, .5, or .7.  
 - Method to generate data, either M or L  
 
-The data generated from each combination of conditions was used to derive results for different sizes of suites of outcome variables, ranging from 2 to 12 in steps of 2. Thus, the analysis was first conducted on the first 2 outcome measures, then on the first 4 outcome measures, and so on. 
+The data generated from each combination of conditions was used to derive results for different sizes of suites of outcome variables, ranging from 2 to 12. Thus, the analysis was first conducted on the first 2 outcome measures, then on the first 3 outcome measures, and so on. 
 
 For each set of conditions, on each run, a one-tailed t-test was conducted to obtain a p-value for the comparison between C and I groups, assuming C would be lower. The p-values for outcome measures were rank ordered for each run and each suite size. 
 
@@ -436,7 +506,7 @@ Because MinNSig moves in quantum steps, the effective familywise error rate is o
 # Read in some pre-simulated data.  NB the simulated data file is enormous and is *not* saved on github. It is created in script below, which may take a couple of hours to run  We use it here just for convenience
 tabnum <- tabnum+1
 p.df <- read.csv('data/p_1sided_methodM_allN_allES_allcorr_maxn12_nsim1000.csv')
-nstep<-2
+nstep<-1
 outcomes <- seq(2,12,nstep)
 toybit <-filter(p.df,ES==0)
 #need to create the ranks as they aren't saved with main file
@@ -460,7 +530,7 @@ ft
 
 ```
 ### Computing power using Adjust Nvar
-For each run of the simulation, and each number of outcome measures (2, 4, 6, 8, 10 or 12), we take the value of MinNSig from the previous step and compute the proportion of p-values below .05, depending on the effect size, sample size and correlation between measures. For effect sizes above zero, this proportion corresponds to the statistical power. 
+For each run of the simulation, and each number of outcome measures, we take the value of MinNSig from the previous step and compute the proportion of p-values below .05, depending on the effect size, sample size and correlation between measures. For effect sizes above zero, this proportion corresponds to the statistical power. 
 
 Power using Adjust Nvar can be compared to:  
 - power obtained with a single outcome measure for the same effect size and sample size  
@@ -471,7 +541,7 @@ Power using Adjust Nvar can be compared to:
 
 ### MinNSig
 `r tabnum <- tabnum+1`
-Table `r tabnum` shows results from a simulation of the Adjust Nvar approach, with the values in the body of the table showing MinNSig, the minimum number of measures that would maintain the overall familywise error rate at 1 in 20, if each individual measure was evaluated at the significance criterion of .05.  It can be seen that the requirements for MinNSig are rather more stringent for Method L then for Method M. Because the t-test statistic used to determine p-values is adjusted for sample size, these values are independent of numbers of subjects. In principle, researchers could use Table `r tabnum` to specify in their research protocol the minimum number of outcomes that would reach their significance level in order for the null hypothesis to be rejected, and it is recommended that the values for Method L be preferred, as the assumptions behind this method seem more realistic than those of Method M. 
+Table `r tabnum` shows results from a simulation of the Adjust Nvar approach, with the values in the body of the table showing MinNSig, the minimum number of measures that would maintain the overall familywise error rate at 1 in 20, if each individual measure was evaluated at the significance criterion of .05. Because the t-test statistic used to determine p-values is adjusted for sample size, these values are independent of numbers of subjects. In principle, researchers could use Table `r tabnum` to specify in their research protocol the minimum number of outcomes that would reach their significance level in order for the null hypothesis to be rejected.
 
 ```{r tab-MinNSig,echo=F}
 shorttabL<-read.csv('data/MinNSig_methodL.csv')
@@ -479,11 +549,13 @@ shorttabM<-read.csv('data/MinNSig_methodM.csv')
 ft<-flextable(shorttabM)
 mycap <- paste0('Table ',tabnum,'A: Values of MinNSig from Method M')
 ft <- set_caption(ft,mycap)
+ft<- fit_to_width(ft, max_width =8 )
 ft
-ft2<-flextable(shorttabL)
-mycap <- paste0('Table ',tabnum,'B: Values of MinNSig from Method L')
-ft2 <- set_caption(ft2,mycap)
-ft2
+# ft2<-flextable(shorttabL)
+# ft2<- fit_to_width(ft2, max_width =8 )
+# mycap <- paste0('Table ',tabnum,'B: Values of MinNSig from Method L')
+# ft2 <- set_caption(ft2,mycap)
+# ft2
 
 
 ```
@@ -491,87 +563,91 @@ ft2
 ### Power of Adjust Nvar approach
 
 `r fignum <- fignum+1`
-Full tables of results for all combinations of parameters are provided in the Appendix. Figure `r fignum` plots power vs familywise error rate for different sizes of suite of outcome measures, including the case where a single outcome measure is used for comparison, using data from method M. 
+Full tables of results for all combinations of parameters are provided in the Appendix. Figure `r fignum` plots power vs familywise error rate for different sizes of suite of outcome measures, including the case where a single outcome measure is used for comparison. 
 
 
 ```{r power-vs-fp, echo=F,warning =F}
 # Function to plot power and familywise error rate so we can compare efficiency of different approaches
 plotpower <- function(method){
-powertab<-read.csv(paste0('data/powertab_method',method,'.csv'))
-shortpower <- powertab[,1:11]
-#compute N1 values using pwr
-for (i in 1:nrow(shortpower)){
- if(shortpower$corr[i]==0){
-  shortpower$N1[i] <-pwr.t.test(n=shortpower$nsub[i],d=shortpower$obsES[i],sig.level=.05,alternative='greater')$power
- }
-}
-
-effsize <- c('Null','Small','Medium','Large')
-fpcols <- 1:(length(myN)*length(mycorr)) #cols hold values for ES=0
-
-firstcol<-which(colnames(shortpower)=='N1')
-shortpower$colorcol <- shortpower$corr*10 #just a set of colors to code correlation levels
-shortpower$colorcol[shortpower$colorcol==0]<-1
-mycols<-unique(shortpower$colorcol)
-myshapes<-unique(shortpower$shapecol)
-shortpower$shapecol <- 1 #and a set of shapes to code Nsub
-shortpower$shapecol[shortpower$nsub==myN[2]]<-16
-shortpower$shapecol[shortpower$nsub==myN[3]]<-17
-shortpower$shapecol[shortpower$nsub==myN[4]]<-15
-mycols<-unique(shortpower$colorcol)
-myshapes<-unique(shortpower$shapecol)
-
-
-alloutcomes<-c(1,outcomes) #will include plot for N =1
-
-for (e in 2:length(myES)){  #ignore ES=0
-par(mfrow=c(3,3))
-n1 <-1
-if (method=='L'){n1 <- 2}
-  for (nvar in n1:length(alloutcomes)){
-    xrange <- (e-1)*length(fpcols)+fpcols
-    yrange <-fpcols
-    xcol<-firstcol+nvar-1
-    
-    plot(shortpower[xrange,xcol],shortpower[yrange,xcol],main=paste0('Method ',method,' ',effsize[e],' Effect Nvar:',alloutcomes[nvar]),col=shortpower$colorcol,pch=shortpower$shapecol,xlim=c(0,1),ylim=c(.001,.1),log='y',xlab='Power',ylab='Familywise error rate (log scale)',cex=1.5)
- 
-    abline(v=.8,lty=3)
-    abline(h=.05,lty=3)
-    
+  powertab<-read.csv(paste0('data/powertab_methodM.csv'))
+  lastcol<-'N12'
+  lastcolnum <- which(colnames(powertab)==lastcol)
+  shortpower <- powertab[,1:lastcolnum]
+  if(method=="P"){
+      shortpower <- powertab[,c(1:5,(lastcolnum+1):ncol(powertab))]
   }
-#make plot for legend
-plot(NULL ,xaxt='n',yaxt='n',bty='n',ylab='',xlab='', xlim=0:1, ylim=0:1)
-legend("topleft", legend=c('0','.2','.4','.6','.8'),title='Correlation', pch=15, pt.cex=2.5, cex=1.2, bty='n', col = mycols)
-legend("topright", legend=myN,title='N per group', pch=myshapes, pt.cex=2.5, cex=1.2, bty='n')
 
-}
+  effsize <- c('Null','Small','Medium','Large')
+  fpcols <- 1:(length(myN)*length(mycorr)) #cols hold values for ES=0
+  
+  firstcol<-which(colnames(shortpower)=='N1')
+  shortpower$colorcol <- shortpower$corr*10 #just a set of colors to code correlation levels
+  #shortpower$colorcol[shortpower$colorcol==0]<-1 
+  mycols<-unique(shortpower$colorcol)
+  myshapes<-unique(shortpower$shapecol)
+  shortpower$shapecol <- 1 #and a set of shapes to code Nsub
+  shortpower$shapecol[shortpower$nsub==myN[2]]<-16
+  shortpower$shapecol[shortpower$nsub==myN[3]]<-17
+  shortpower$shapecol[shortpower$nsub==myN[4]]<-15
+  mycols<-unique(shortpower$colorcol)
+  myshapes<-unique(shortpower$shapecol)
+  
+  
+ 
+  
+  for (e in 2:length(myES)){  #ignore ES=0
+       #compute N1 values using pwr
+      solopower<-vector()
+    for (n in myN){
+  
+     solopower <-c(solopower,pwr.t.test(n=n,d=myES[e],sig.level=.05,alternative='greater')$power)
+    }
+   solopower<-round(solopower,3)
+    
+    nfigrow <- round(((length(outcomes)+3)/3),0)
+    par(mfrow=c(nfigrow,3))
 
+    for (nvar in 1:length(outcomes)){
+      xrange <- (e-1)*length(fpcols)+fpcols
+      yrange <-fpcols
+      xcol<-firstcol+nvar
+      
+      plot(shortpower[xrange,xcol],shortpower[yrange,xcol],main=paste0('Effect size: ',effsize[e],'  Nvar:',outcomes[nvar]),col=shortpower$colorcol,pch=shortpower$shapecol,xlim=c(0,1),ylim=c(.001,.1),log='y',xlab='Power',ylab='Familywise error rate (log scale)',cex=1.5)
+      
+      abline(v=.8,lty=3)
+      abline(h=.05,lty=3)
+      
+    }
+    #make plot for legend
+    plot(NULL ,xaxt='n',yaxt='n',bty='n',ylab='',xlab='', xlim=0:1, ylim=0:1)
+    legend("topleft", legend=c('.2','.4','.6','.8'),title='Correlation', pch=15, pt.cex=2.5, cex=1.2, bty='n', col = mycols[2:length(mycols)])
+    legend("topright", legend=myN,title='N per group', pch=myshapes, pt.cex=2.5, cex=1.2, bty='n')
+    text(.45,.15,paste0("Power for single outcome\n N = 20 (",solopower[1],"); N= 50 (",solopower[2],");\n N = 80 (",solopower[3],"); N = 110 (",solopower[4],")"))
+  }
+  
 }
 ```
 
-```{r doplotsM,echo=F,warning=F,fig.width=7,fig.asp=1,fig.cap='Figure 2'}
+```{r doplotsM,echo=F,warning=F,fig.width=7,fig.asp=1.5,fig.cap='Figure 2'}
 plotpower('M')
 
 ```
 
 `r fignum <- fignum+1`
-For these plots, the small, medium and large effect sizes correspond to Cohen's d of .3, .5 and .7. An efficient method is one that gives power of .8 or above, and a familywise error rate of .05 or less, i.e. the results should cluster in the bottom right quadrant. Power is dependent on sample size, as is evident from these plots where the unfilled figures, corresponding to the smallest sample size of 20 per group,fail to achieve power above .8, except at the highest effect size of .7.  It is evident from inspection that when method M is used, the Adjust NVar approach compares favourably with the single outcome (Nvar 1) case, when there are 4 or more outcome measures in a suite.  The power tends to be at least as high as for the single variable case, with lower familywise error rates. Note, however, that the highest power is seen for the case where the variables are uncorrelated (black symbols), and this is an unrealistic scenario, especially for large suites of outcome measures. 
+For these plots, the small, medium and large effect sizes correspond to Cohen's d of .3, .5 and .7. An efficient method is one that gives power of .8 or above, and a familywise error rate of .05 or less, i.e. the results should cluster in the bottom right quadrant. Power is dependent on sample size, as is evident from these plots where the unfilled figures, corresponding to the smallest sample size of 20 per group,fail to achieve power above .8, except at the highest effect size of .7.  It is evident from inspection that  the Adjust NVar approach compares favourably with the single outcome case, when there are 4 or more outcome measures in a suite.  The power tends to be at least as high as for the single variable case, with lower familywise error rates. 
 
-
-Figure `r fignum` gives an equivalent plot for method L.  
 
   
+Figure `r fignum` gives an equivalent plot for power from principal components 
 
-```{r doplotsL,echo=F,warning=F,fig.width=7,fig.asp=1,fig.cap='Figure 4'}
-plotpower('L')
+
+
+```{r doplotsL,echo=F,warning=F,fig.width=7,fig.asp=1.5,fig.cap='Figure 4'}
+plotpower('P')
 
 ```
-  
-As noted above, method L is more realistic, but because the effect size is computed from a latent variable, with outcome measures as indirect indicators, the observed effect sizes for individual variables in a suite will vary, depending on the correlation between the variables. Here, the designations of effect size as small, medium and large corresponds to the effect on the unobserved latent variable used to generate the outcome measures (as shown in Figure 1). 
 
-Method L provides power estimates that are more in keeping with the single outcome case (see previous Figure), but achieves this level of power while providing a more stringent control of familywise error rate. The Adjust Nvar approach works well when there are between 4 and 6 outcome measures that are moderately intercorrelated (r between .4 and .6). 
-
-Finally, the Principal Components from each suite of outcomes were inspected, but they are not plotted here, as it was evident that they are reliably lower than the power obtained with the Adjust Nvar approach, regardless of the method used to generate the data (see Appendix for values).  
+The Principal Components from each suite of outcomes also give high levels of power, with Familywise error rate clustering around .05.  
 
 ## Discussion
 
@@ -583,33 +659,33 @@ A second advantage of this approach is that once the values of MinNSig have been
 
 A third advantage is that in effect, by including multiple outcome measures, one can improve the efficiency of a study, in terms of the trade-off between power and familywise errors. If several outcome measures are seen as imperfect proxy indicators of an underlying latent construct, then we are in effect building in a degree of within-study replication if we require that more than one measure shows the same effect in the same direction before we reject the null hypothesis. 
 
-The results obtained with this approach depend crucially on assumptions embodied in the simulation that is used to derive predictions. Outcome measures simulated here are normally distributed, and quite uniform in their covariance structure. In Method L, which seems a more realistic approach than Method M, the set of correlated measures was generated by first creating a random normal deviate that was treated as the latent variable, and then creating outcome measures with a specific degree of correlation with the latent variable. It would be possible to generate datasets with different underlying covariance structures to be tested in the same way, but that is beyond the scope of this paper. 
+The results obtained with this approach depend crucially on assumptions embodied in the simulation that is used to derive predictions. Outcome measures simulated here are normally distributed, and quite uniform in their covariance structure.  It would be possible to generate datasets with different underlying covariance structures to be tested in the same way, but that is beyond the scope of this paper. 
 
 
 
 # Appendix
 
-Computed power for Method M
+Computed power for Adjust NVar method
 ```{r getpowertabsM,echo=F}
 powerM<-read.csv('data/powertab_methodM.csv')
 
 powerM$obsES<-round(powerM$obsES,3)
+pcstart <- which(colnames(powerM)=='PC2')
+powerMA <- powerM[,1:(pcstart-1)]
+ft<-flextable(powerMA)
+ft<- fit_to_width(ft, max_width =8 )
+ft<-set_caption(ft,'Power table for MinSigVar Method (where ES = 0, values are familywise error rate)')
+ft
 
-ft<-flextable(powerM)
-ft<- fit_to_width(ft, max_width =8 )
-ft<-set_caption(ft,'Power table for Method M (where ES = 0, values are familywise error rate)')
-ft
+powerMB <- powerM[,c(1:4,pcstart:ncol(powerM))]
+ft2<-flextable(powerMB)
+ft2<- fit_to_width(ft2, max_width =8 )
+ft2<-set_caption(ft2,'Power table for principal components (where ES = 0, values are familywise error rate)')
+ft2
 ```
-  
-  
-```{r powertabsL,echo=F}  
-powerL<-read.csv('data/powertab_methodL.csv')
-powerL$obsES<-round(powerL$obsES,3)
-ft<-flextable(powerL)
-ft<- fit_to_width(ft, max_width =8 )
-ft<-set_caption(ft,'Power table for Method L (where ES = 0, values are familywise error rate)')
-ft
-```
+
+
+
 
 # Notes
 The script is available on https://github.com/oscci/MinSigVar.
