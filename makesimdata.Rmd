@@ -1,0 +1,170 @@
+---
+title: "makesimdata"
+author: "Dorothy Bishop"
+date: '2022-10-07'
+output: html_document
+---
+```{r loadpackages}
+require(tidyverse)
+require(flextable)
+require(MASS)
+require(pwr)
+require(graphics)
+require(effsize)
+require(tidyr)
+require(ggplot2)
+require(DescTools) #for Fisher Z
+
+set.seed(20) #nb this seed was *not* set for simulated data reported in the ms
+```
+
+
+```{r makecorrelated_MASS,echo=F}
+# METHOD M
+# Generates a set of outcomes for two groups with a given intercorrelation between N outcomes and given effect size
+# The p values for individual outcomes are saved in the first block of variables. 
+# The columns after maxn contain the principal component scores from the different levels of N outcomes for each subject, e.g. PCA2, PCA4, and PCA6, if we are considering outcome sets of 2, 4 or 6 variables. 
+#The next set of columns contain alpha corrected for Meff depending on how many outcomes included.
+
+makecorM <- function(N,outcomes,r,e,sd){ 
+  # Generate correlated vars with mu set to ES 
+  # We also simulate a principal component (PC) for each outcome set, i.e. a PCA based just on variables 1-2, and another based on variables 1-4, and another on variables 1-6. 
+  
+  maxn <- max(outcomes)
+  C <-data.frame(matrix(NA,nrow=N,ncol=(1+maxn+length(outcomes)))) #control data
+  colnames(C)<-c(paste0("V",1:maxn),paste0("PC",outcomes),'base')
+  I <-C #same structure of data frame for intervention data
+  ncols <- ncol(I)
+  
+  cormat <-matrix(r,nrow=maxn,ncol=maxn)
+  diag(cormat) <- 1
+  C[,1:maxn] <- mvrnorm(N,rep(0,maxn),cormat) #control mean is zero
+  I[,1:maxn] <- mvrnorm(N,rep(e,maxn),cormat) #intervention mean is e
+  cond <- c(rep("C",N),rep("I",N))
+  allvals <-cbind(rbind(C,I),cond) #combine the groups to compute principal components
+  
+  #create principal components: this based on I and C vals combined
+  thiscol<-maxn #we will add PCs as next set of cols
+  for(o in outcomes){
+    
+    varboth <-allvals[,1:o] #both groups, N columns for this outcome suite
+    pwts<- prcomp(varboth)$rotation[,1]
+    #principal component may have opposite polarity, so flip if wts negative
+    if(mean(pwts)<0){pwts<-pwts*(-1)}
+    
+    mypc<-apply(varboth[,1:o],1,function(x) sum(pwts*x)) #compute principal component score for each row of data
+    thiscol<-thiscol+1
+    allvals[,thiscol]<-mypc
+    
+    
+  }
+
+  
+  #compute average observed effect size
+  dd<-0
+  for (d in 1:maxn){
+    dd<-dd+cohen.d(allvals[,d]~allvals$cond)$estimate
+  }
+  allout<-(-dd/maxn)  #first value of allout will be average effect size from all 12 simulated outcomes in this condition
+  
+  
+  #get pvalue from t-test for all outcome and for PCs
+  for (v in 1:(maxn+length(outcomes))) {
+    tempt <- t.test(allvals[,v]~allvals$cond,alternative='less') #one-tailed t-test ; predict C<I
+    allout<-c(allout,tempt$p.value)
+    
+  }
+  #get alpha adjusted for MEff for given set of outcomes - this will be based on observed correlation matrix
+      for(o in outcomes){
+    
+    varboth <-allvals[,1:o] #both groups, N columns for this outcome suite
+    mymat<-cor(varboth)
+    evs = eigen(mymat)$values
+    eff = 1 + (o - 1) * (1 - var(evs) / o)
+    allout<-c(allout,tempt$p.valuem,.05/eff)
+    
+    
+  }
+  return(allout)  #allout is a vector with the mean observed effect size, and then the p-values for one-tailed t-tests for each of the 12 variables, and for the 12 principal components, and the Meff alpha for this correlation matrix
+}
+
+```
+
+
+```{r createp,echo=F}
+# For each run of the simulation, a one-tailed t-test is used to compare groups I and C; we can use a one-tailed test as we assume the intervention group (I) will obtain a higher score than the control group (C).  This generates a huge data frame of p-values, one per run, covering all values of effect size, correlation and sample size. P-values are given for individual variables, and for the principal components. 
+
+
+methodlist<-"M"  #earlier version had alternative method for data creation; this now obsolete
+for (m in 1:length(methodlist)){
+  
+  method <- methodlist[m] 
+  
+  # If  nsim is 1000, this takes about 50 min to run on my Mac; 10000 simulations is an overnight run
+  
+  nsim <- 1000 #number of runs for each combination of mycorr, mynvar,myES and myN.
+  #for final version, have v. large value - for testing try with smaller nsims
+  mycorr <- c(0,.2,.4,.6,.8) #intercorrelations between variables to consider - can modify this
+  nstep<-1
+  outcomes <- seq(2,12,nstep) #number of outcome variables to consider - can modify this, but must start with 2
+  maxn <- max(outcomes) #we create max number of variables, and then use subsets of this to examine smaller Ns
+  myES <- c(0,.3,.5,.7) #effect sizes to consider - can modify this
+  myN <- c(20,50,80,110) #Ns per group to consider - can modify this
+  
+  mypname <-paste0('p_1sided_method',method,'_allN_allES_allcorr_maxn',maxn,'_nsim',nsim,'_nstep',nstep) #filename to save csv file with simulated p-values (saves time when many runs used)
+  myfolder <-'data/'
+
+   
+    p.df <- data.frame(matrix(NA,nrow=nsim*length(mycorr)*length(myN)*length(myES),ncol=maxn+5+length(outcomes)+length(outcomes)))
+    p.df[1:4] <- expand.grid(1:nsim,myES,myN,mycorr)
+    colnames(p.df) <-c('run','ES','Nsub','corr','obsES',paste0('V',1:maxn),paste0('PC',outcomes) ,paste0('Meffalpha',outcomes)) 
+    p.df$run <- 1:nrow(p.df) #this did store 1:nsim for each combination of conditions - here we overwrite this to give a unique rownumber - this is just to make it easy to select subsets of the data
+    coloffset <- which(colnames(p.df)=='V1')-1
+    
+    thisrow <- 0 #initialise
+    
+    # !slow loop seems unavoidable!
+    for (c in 1:length(mycorr) ){
+     # u <-.0001 #value with .0001 instead of zero
+      r <- mycorr[c]
+      for (e in myES){
+        for (n in myN){
+           myf<-filter(p.df,ES==e,Nsub==n,corr==r) #note that the 'run' column of myf stores rows corresponding to this subset in larger p.df dataframe.
+
+            p.df[myf$run,5:(ncol(p.df))]<-t(apply(myf,1, function(x) makecorM(n,outcomes,r,e,1)) )
+       
+        }
+      }
+    }
+  }
+  
+```
+
+For power we just need to compute whether obs p is below Meffcorrected value for any of the outcome variables in the suite
+
+```{r findNsig}
+addbit<-data.frame(matrix(0,nrow=nrow(p.df),ncol<-length(outcomes)))
+colnames(addbit) <- paste0('Meffsig',outcomes)
+p.df<-cbind(p.df,addbit)
+
+w1<-which(colnames(p.df)=="V2")
+w2<-which(colnames(p.df)=="Meffalpha2")
+w3<-w2-w1
+
+
+for (c in w1:(w1+length(outcomes)-1)){
+ for (r in 1:nrow(p.df)){
+   wx<-which(p.df[r,6:c]<p.df[r,(c+w3)])
+
+     p.df[r,(c+w3+length(outcomes))]<-length(wx)
+    
+   
+ }
+}
+
+    write.csv(p.df,paste0(myfolder,mypname,'_Nsig.csv'),row.names=F)
+    # we now have p.df, which is a big dataframe with p-values from all the simulations, for max N variables at all corrs, effect sizes and sample sizes. It also has computed alpha for Meff and a count of how many obs p are less than the Meff alpha
+    
+
+```
+
