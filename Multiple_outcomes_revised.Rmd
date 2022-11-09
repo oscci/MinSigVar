@@ -12,9 +12,22 @@ editor_options:
   chunk_output_type: console
 ---
 
+<!-- To do:  
+Check the terminology - familywise error rate, adjusted alpha etc. Need to be consistent throughtout.  
+Make figures showing the correlation structures that are considered.  
+Read earlier Vickerstaff.  
+? Situation if only some variables have a real effect. 
+Do we need to now vary effect size by variables as well as correlation structure?
+Suppose we have 2 factors and one has big ES and one has none. If you use multiple outcomes and MEff, you might reduce chances of finding the effect?
+This is case where you are really going to need to replicate to see whether the pattern is chance or genuine?
+But first let's just do the power stuff with the simple case, and compare with PCA
+-->
+
+
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-# Note to users: when running for the first time, you will need to set skipsim on line 207 to zero, in order to generate the simulated data. The chunks to generate data and rank order p-values are slow to run, but once created, you can set skipsim to 1, and the simulated data will be read from file instead.
+# Note to users: 
 # Simulated data for 10,000 runs per condition, as well as other .csv files used here can be downloaded from https://osf.io/5t4se/files/
 
 require(tidyverse)
@@ -27,10 +40,22 @@ require(tidyr)
 require(ggplot2)
 require(DescTools) #for Fisher Z
 require(here)
+require(kableExtra)
+require(knitr)
 fignum <- 0
 tabnum <-0
 set.seed(20) #nb this seed was *not* set for simulated data reported in the ms
 
+```
+
+```{r numformat,echo=F}
+#Format numbers so they have same n decimal places, even if zero at end
+#This returns a string
+
+numformat=function(mynum,ndecimals){
+  newnum <- format(round(mynum,ndecimals),nsmall=ndecimals)
+  return(newnum)
+}
 ```
 
 
@@ -38,19 +63,19 @@ set.seed(20) #nb this seed was *not* set for simulated data reported in the ms
 
 ### Background   
 
-The CONSORT guidelines for clinical trials recommend use of a single primary outcome, to guard against the raised risk of false positive findings when multiple measures are considered. It is, however, possible to include a suite of multiple outcomes in an intervention study, while controlling the familywise error rate, if the correlation between them is known. The MEff statistic is well-suited to this purpose, but not well known outside genetics.
+The CONSORT guidelines for clinical trials recommend use of a single primary outcome, to guard against the raised risk of false positive findings when multiple measures are considered. It is, however, possible to include a suite of multiple outcomes in an intervention study, while controlling the familywise error rate, if the correlation between outcomes is known. The MEff statistic is a relatively simple approach that is well-suited to this purpose, but is not well-known outside genetics. 
 
 ### Methods  
 
-Using the variance of eigenvalues from a correlation matrix, we can compute MEff, the effective number of variables that should be entered when correcting an alpha level for multiple comparisons. Various scenarios are simulated to consider how MEff is affected by  the variability of pairwise correlations within a set of outcome measures. 
+Data were simulated for an experimental evaluation of an intervention, with a given sample size (N), effect size (E) and correlation matrix for a suite of outcomes (**R**). Using the variance of eigenvalues from the correlation matrix, we can compute MEff, the effective number of variables that the alpha level should be divided by to control the familywise error rate. Various scenarios are simulated to consider how MEff is affected by the pattern of pairwise correlations within a set of outcome measures. Simulated data is used to compare the power of this approach compared to using a single outcome or a principal component analysis. 
 
 ### Results  
 
-Meff depends solely on the average (Fisher-transformed) pairwise correlation in a matrix, regardless of variation among correlations. This makes it possible to derive simplified lookup tables for MEff, given a certain set size of variables and an average correlation between them.  
+In certain situations, notably when the sample size is around 50-80 per group and there is a moderate correlation between outcome measures (.4-.5) and medium effect size (.3-.5), statistical power can be increased modestly by inclusion of multiple outcome measures, while using MEff to maintain the familywise error rate at .05. 
 
 ### Conclusions   
 
-Where it is feasible to have a suite of moderately correlated outcome measures, then this might be a more efficient approach than reliance on a single primary outcome measure in an intervention study. In effect, it builds in an internal replication to the study. This approach can also be used to evaluate published intervention studies. 
+Where it is feasible to have a suite of moderately correlated outcome measures, then Meff can provide a more efficient approach than reliance on a single primary outcome measure in an intervention study. In effect, it builds in an internal replication to the study. With appropriate control of the alpha level using Meff, the researcher can identify a true intervention effect if any one of a set of outcome measures gives a statistically significant result. This approach can also be used to evaluate published intervention studies, if the correlation between outcome measures can be estimated. 
 
 ## Keywords  
 intervention, methodology, statistics, correlated outcomes, power, familywise error rate, multiple comparisons
@@ -61,38 +86,287 @@ intervention, methodology, statistics, correlated outcomes, power, familywise er
 The CONSORT guidelines for clinical trials [@moher2010] are very clear on the importance of having a single primary outcome:  
 _All RCTs assess response variables, or outcomes (end points), for which the groups are compared. Most trials have several outcomes, some of which are of more interest than others. The primary outcome measure is the pre-specified outcome considered to be of greatest importance to relevant stakeholders (such as patients, policy makers, clinicians, funders) and is usually the one used in the sample size calculation. Some trials may have more than one primary outcome. Having several primary outcomes, however, incurs the problems of interpretation associated with multiplicity of analyses and is not recommended._  
 
-This advice often creates a dilemma for the researcher: in many situations there are multiple measures that could plausibly be used to index the outcome. A common solution is to apply a Bonferroni correction to the alpha level used to test significance of individual measures, but this is over-conservative if, as is usually the case, the different outcomes are intercorrelated. Alternative methods are to adopt some process of data reduction, such as extracting a principal component from the measures that can be used as the primary outcome, or using a permutation test to derive exact probability of an observed pattern of results. 
+This advice often creates a dilemma for the researcher: in many situations there are multiple measures that could plausibly be used to index the outcome. If we have several outcomes and we would be interested in improvement on any measure, then we need to consider the __familywise error rate__, i.e. the probability of at least one false positive in the whole set of outcomes. For instance, if want to set the false positive rate,  alpha to .05,  and we have six independent outcomes, the probability that __none__ of the outcomes is significant will be .95^6, which is .735. Thus the probability that __at least one__ outcome is significant is 1-.735, which is .265.
 
-To illustrate the problem with a realistic example, suppose we are reading a report of a behavioural intervention that is designed to improve language and literacy, and there are 6 measures where we might plausibly expect to see some benefit. The researchers report that none of the outcomes achieves the Bonferroni-adjusted significance criterion of p < .008, but two of them reach significance at p < .05. Should we dismiss the trial as showing no benefit?  We can use the binomial theorem to check the probability of obtaining this result if the null hypothesis is true and the measures are independent: it is `r round(binom.test(2,6,.05)$p.value,3)`, clearly below the 5% alpha level. But what if the measures are intercorrelated? That is often the case: indeed, it would be very unusual for a set of outcome measures to be independent. A thought experiment helps here. Suppose we had six measures that were intercorrelated at .95 - in effect they would all be measures of the same thing, and so if there was a real effect, most of the measures should show it. Extending this logic in a more graded way, the higher the correlation between the measures, the more measures would need to reach the original significance criterion to maintain the overall significance level below .05. 
+A common solution is to apply a Bonferroni correction by dividing the alpha level by the number of outcome measures - this example .05/6 = .008. But this is over-conservative if, as is usually the case, the various outcomes are intercorrelated.  
 
-In a review of an earlier version of this paper, Sainini (2021) pointed out that the Meff statistic, originally developed in the field of genetics by Chevrud (2001) and Nyholt (2004), provided a simple way of handling this situation. With this method, one computes eigenvalues from the correlation matrix of outcomes. The number of eigenvalues will be the same as the number of outcomes, N, but their size depends on the correlation between the measures. In the extreme case where all measures are perfectly correlated, only the first eigenvalue will be nonzero; in the other extreme, where there is zero correlation between variables, all eigenvalues will be equal in size, with zero variance. The variance  of the eigenvalues is used to compute Meff, which is the effective number of comparisons, from the formula:  
-   Meff = 1 + (N-1)*(1-(Var(Eigen)/N)  
-where N is the number of outcome measures, and Eigen is the set of eigenvalues.  
+To illustrate the problem with a realistic example, suppose we are reading a report of a behavioural intervention that is designed to improve language and literacy, and there are 6 measures where we might plausibly expect to see some benefit. The researchers report that none of the outcomes achieves the Bonferroni-adjusted significance criterion of p < .008, but two of them reach significance at p < .05. Should we dismiss the trial as showing no benefit?  We can use the binomial theorem to check the probability of obtaining this result or a more extreme one if the null hypothesis is true and the measures are independent: it is `r round(binom.test(2,6,.05)$p.value,3)`,  below the 5% alpha level. But what if the measures are intercorrelated? That is often the case: indeed, it would be very unusual for a set of outcome measures to be independent. A thought experiment helps here. Suppose we had six measures that were intercorrelated at .95 - in effect they would all be measures of the same thing, and so if there was a real effect, most of the measures should show it. Extending this logic in a more graded way, the higher the correlation between the measures, the more measures would need to reach the original alpha level to maintain the familywise significance level below .05. At the other extreme, if the correlations between measures were all zero, then the Bonferroni correction would be appropriate. 
 
-Derringer (2018) provided a useful tutorial on Meff, noting that it is not well-known outside the field of genetics, but is well-suited to the field of psychology. Her preprint included links to R scripts for computing Meff. 
+Alternative methods have been developed to address this issue. One approach is to adopt some process of data reduction, such as extracting a principal component from the measures that can be used as the primary outcome.  Alternatively, a permutation test can be used to derive exact probability of an observed pattern of results. Neither approach, however, is helpful if the researcher is evaluating a published paper where an appropriate correction has not been made. These could be cases where no correction is made for multiple testing, risking a high rate of false positives, or where Bonferroni correction has been applied despite using correlated outcomes, which will be overconservative in rejecting the null hypothesis. The goal of the current article is to provide some guidance for interpretation of published papers where the raw data are not available for recomputation of statistics. 
 
-These resources will be sufficient for many readers interested in using Meff, but may be less accessible for those whose main focus is on evaluating existing intervention studies. A common problem in fields such as education and allied health professions is that practitioners are expected to adopt an evidence-based approach to intervention, yet their methodological training may be quite basic and lack support from expert statisticians. The goal here is to provide relevant information to help evaluate studies with multiple outcome measures, without requiring the reader to perform complex statistical analyses. 
+In a review of an earlier version of this paper, Sainani (2021) pointed out that the MEff statistic, originally developed in the field of genetics by Chevrud (2001) and Nyholt (2004), provided a simple way of handling this situation. With this method, one computes eigenvalues from the correlation matrix of outcomes, which reflect the degree of intercorrelation between them. The mathematical definition of an eigenvalue can be daunting, but an intuitive sense of how it relates to correlations can be obtained by considering the cases shown in Table 1.  This shows how eigenvalues vary with the correlation structure of a matrix, using an example of six outcome measures. The number of eigenvalues, and the sum of the eigenvalues, is identical to the number of measures. Let us start by assuming a matrix in which all off-diagonal values are equal to r.  It can be seen that when the correlation is zero, each eigenvalue is equal to one, and the variance of the eigenvalues is zero.  When the correlation is one, the first eigenvalue is equal to six, all other eigenvalues are zero, and the variance of the eigenvalues is six. As correlations increase from .2 to .8, the size of the first eigenvalue increases, and that of the other eigenvalues decreases.  
 
-This goal is achieved in three sections below:
-1. A lookup table is provided that gives values of Meff, and associated adjusted alpha-levels for different set sizes of outcome measures, with mean pairwise correlation varying from 0 to 1 in steps of .1.
-2. Simulated data is used to demonstrate that the mean pairwise correlation in a matrix gives comparable values of Meff, regardless of the range of correlation coefficents in the matrix
-3. Power?
-4. A real-world example of application of Meff to an existing dataset is shown. 
+<!--Table 1 also considers the case when the outcomes correspond to two underlying factors. Rows 7-12 show eigenvalues for the case where the first three outcomes correspond to Factor 1, and the last three outcomes correspond to Factor 2, but there is no correlation between the two factors. The correlation for outcomes loading on the same factor, is as shown in the first column. We can see that now the first two eigenvalues are equivalent in size, becoming larger as the within-factor correlation increases. Note that in this situation, the average correlation for the off-diagonal matrix will be lower than the correlation within factors; the computed mean correlation is shown in column 2. The variance of eigenvalues is higher in this case than it is for the case where all correlations are uniform - as can be seen by comparing the variance for the 2-factor case when r = 1, with the case of the 1-factor case with r = .4.-->
 
-In the original version of this manuscript, an alternative approach, MinNVar, was proposed, in which the focus was on the number of outcome variables achieving a conventional .05 level of significance. As noted by reviewers, this has the drawback that it could not reflect continuous change in probability levels, because it was based on integer values (i.e. number of outcomes). This made it overconservative in some cases, where adopting the MinNVar approach gave a familywise error rate well below .05. MinNVar is therefore not presented here, although in an online supplement, a comparison is presented with Meff, for completeness.
+```{r makemat,include=F}
+demoeigens<-function(nvar,cor){
+m<-matrix(rep(cor,nvar*nvar),nrow=nvar)
+diag(m)<-1
+evs = eigen(m)$values
 
-1. Deriving a lookup table.
+return(evs)
+}
+```
+
+```{r makemat2,include=F}
+#have correls split into two blocks
+demoeigens2<-function(nvar,cor){
+m<-matrix(rep(cor,nvar*nvar),nrow=nvar)
+diag(m)<-1
+startc1<-1
+endc1<-(nvar/2)
+startc2<-(nvar/2)+1
+endc2<-nvar
+m[startc1:endc1,startc2:endc2]<-0
+m[startc2:endc2,startc1:endc1]<-0
+evs = eigen(m)$values
+meancor<-mean(m[upper.tri(m)])
+
+return(list(evs,meancor))
+}
+```
+
+```{r eigendemo,include=F}
+#This chunk creates Table 1
+nvar=6
+mycor<-seq(from=0,to=1,by=.2)
+evstab<-data.frame(matrix(NA,ncol=(5+nvar),nrow=(2*length(mycor)-1)))
+colnames(evstab)<-c('r',paste0('Eigen',1:nvar),'Var','MEff','AlphaMEff','Mean_corr')
+evstab[,1]<-c(mycor,paste0(mycor[2:length(mycor)],'/',mycor[2:length(mycor)]))
+thisrow<-0
+for(cor in mycor){
+  thisrow<-thisrow+1
+  evs<-demoeigens(nvar,cor)
+  evstab[thisrow,2:(1+nvar)]<-round(evs,2)
+  evstab$Var[thisrow]<-var(evs)
+
+}
+
+  evstab$MEff<-1+(nvar-1)*(1-evstab$Var/nvar)
+  evstab$AlphaMEff<-round(.05/evstab$MEff,3)
+  evstab[,2:(1+nvar)]<-numformat(evstab[,2:(1+nvar)],1)
+  thistab<- evstab[1:6,1:(ncol(evstab)-1)]
+ft1<-flextable(thistab)
+ft1<- fit_to_width(ft1, max_width =8 )
+ft1<-set_caption(ft1,'Eigenvalues, MEff and AlphaMEff with 6 outcome variables')
+
+  #we also add to the table the case where there are 2 separate factors, but this is not included in Table 1
+for(cor in mycor[2:length(mycor)]){
+  thisrow<-thisrow+1
+  evs<-demoeigens2(nvar,cor) #this time we have a list with evs and the computed corr
+  evstab[thisrow,2:(1+nvar)]<-round(evs[[1]],2)
+  evstab$Var[thisrow]<-var(evs[[1]])
+  evstab$Mean_corr[thisrow]<-evs[[2]]
+
+}
 
 
-```{r makemeff}
-makemeff<-function(allN,allr,method=1){
+
+  evstab$MEff<-1+(nvar-1)*(1-evstab$Var/nvar)
+  evstab$AlphaMEff<-round(.05/evstab$MEff,3)
+
+  #move the Meancorr into 2nd column
+  nc<-ncol(evstab)
+  evstab<-evstab[,c(1,nc,2:(nc-1))]
+  
+  write.csv(evstab,'EVStab.csv',row.names=F)
+
+  
+```
+
+`r ft1`  
+In Table 1, r is the intercorrelation between the six outcomes, Eigen1-Eigen6 are the eigenvalues, and Var is the variance of the six Eigenvalues, which is used to compute MEff (the effective number of comparisons) from the formula:  
+   MEff = 1 + (N-1)*(1-(Var(Eigen)/N)  
+where N is the number of outcome measures, and Eigen is the set of N eigenvalues. 
+
+This value is then used to compute the corrected alpha level, AlphaMEff. Assuming we set alpha to .05, AlphaMEff is .05 divided by MEff. One can see that this value is equivalent to the Bonferroni-corrected alpha (.05/6) when there is no correlation between variables, and equivalent to .05 when all variables are perfectly correlated. 
+
+Derringer (2018) provided a useful tutorial on MEff, noting that it is not well-known outside the field of genetics, but is well-suited to the field of psychology. Her preprint includes links to R scripts for computing MEff and illustrates their use in three datasets. 
+
+These resources will be sufficient for many readers interested in using MEff, but readers may find it useful to have a look-up table for the case when they are evaluating existing studies.  The goal of this paper is two-fold:  
+
+A. To consider how inclusion of multiple outcome measures affects statistical power, relative to the case of a single outcome, when appropriate correction of the familywise error rate is made using MEff. 
+B. To provide relevant information to help evaluate studies with multiple outcome measures, without requiring the reader to perform complex statistical analyses. 
+
+These goals are achieved in three sections below:
+
+1. Power to detect a true effect using MEff is calculated from simulated data for a range of values of sample size (N), effect size (E) and intercorrelation between outcomes (**R**)
+2. A lookup table is provided that gives values of MEff, and associated adjusted alpha-levels for different set sizes of outcome measures, with mean pairwise correlation varying from 0 to 1 in steps of .1.
+3. Use of the lookup table is shown for real-world example of application of MEff using a published  dataset. 
+
+## Alternative approach, MinNVar  
+In the original version of this manuscript, an alternative approach, MinNVar, was proposed, in which the focus was on the _number_ of outcome variables achieving a conventional .05 level of significance. As noted by reviewers, this has the drawback that it could not reflect continuous change in probability levels, because it was based on integer values (i.e. number of outcomes). This made it overconservative in some cases, where adopting the MinNVar approach gave a familywise error rate well below .05. One reason for proposing MinNVar was to provide a very easy approach to evaluating studies that had multiple outcomes, using a lookup table to check the number of outcomes needed, depending on overall correlation between measures. However, it is equally feasible to provide lookup tables for MEff, which is preferable on other groups, and so MinNVar is not presented here; interested readers can access the first version of this paper to evaluate that approach. 
+
+## Use of one-tailed p-values    
+In all the analyses and simulations described here, one-tailed tests are used. Two-tailed p-values are far more common in the literature, perhaps because one-tailed tests are often abused by researchers, who may switch from a two-tailed to a one-tailed p-value in order to nudge results into significance.  
+
+This is unfortunate because, as argued by Lakens (2016), provided one has a directional hypothesis, a one-tailed test is more efficient than a two-tailed test. It is a reasonable assumption that in intervention research, which is the focus of the current paper, the hypothesis is that an outcome measure will show improvement. Of course, interventions can cause harms, but, unless those are the focus of study, we have a directional prediction for improvement. 
+
+
+
+## Methods  
+Correlated variables were simulated using in the R programming language [@rcoreteam2020]. The script to generate and analyse simulated data is available on !!!!!.  For each model specified below, 1000 simulations were run to compare two groups on a one-tailed t-test. Data for the two groups were generated by the same process, except that an effect size, E, was added to scores of the intervention group, I, but not to the control group, C. Scores of the two groups were compared using a one-tailed t-test for each run.
+
+Power was computed for different levels of effect size (E),  correlation between outcomes (**R**) and sample size per group (N) for the following methods:  
+a) Uncorrected data: Proportion of runs where p was less than .05 for at least one outcome.
+b) Bonferroni-corrected data: Proportion of runs where p was less than the Bonferroni-corrected value for at least one outcome.
+c) Principal component analysis (PCA): Proportion of runs where p was below .05 when groups I and C were compared on scores on the first principal component of PCA. 
+d) MEff-corrected data: Proportion of runs where p was less than AlphaMeff value for at least one outcome. 
+Note that where E is set to zero, the power corresponds to the false positive rate - i.e. the probability of detecting a significant result when the null  hypothesis is true.  
+
+### Method for simulating outcomes  
+
+Simulating multivariate data forces one to consider how to conceptualise the relationship between an intervention and multiple outcomes.  Implicit in the choice of method is an underlying causal model that includes mechanisms that lead measures to be correlated. 
+
+## Method M (Multivariate normal) ##
+Perhaps the simplest approach is to use the _mvrnorm_ function of the _MASS_ package to generate a set of outcome variables with a specified covariance matrix, where all off-diagonal elements are drawn from a population with the same prespecified correlation, r. Three parameters are varied across runs: the population correlation, r; the number of cases per group, N; and the mean difference between Intervention (I) and Control (C) groups, E (effect size). 
+
+In initial tests, r varied from 0 to .8 in steps of .2, and the number of simulated cases per group varying from 20 to 110 in steps of 30. The mean was always zero for group C, and the specified effect size, E, for group I. Because of random noise, observed effect size in a run will vary around E; the mean of all effect sizes is expected to approximate E, though will be noisier when N is small. 
+
+This method corresponds to that used by Vickerstaff et al. (2021), except that they also incorporated options for missing data and for non-continuous data. However, in some situations, it leads to unrealistic data: in particular it is possible to have a set of outcomes that are independent of one another (r = 0) yet all having the same effect size. In real-world data, one would expect outcomes to be correlated, especially those that all showed an impact of intervention. The implicit assumption is that the intervention is effective for several outcomes insofar as it modifies a common process. 
+Conversely, if a set of outcomes was very highly intercorrelated, then we would expect them all to show a similar intervention effect. It is possible to think of counterexamples: for instance, height and weight are correlated in the adult population, yet we would expect diet to affect only weight. But in practice, nobody doing a study of a diet would use both height and weight as outcome variables: our knowledge of malleability of adult height would preclude this.  
+
+In practice, with most combinations of parameters that were of interest, Method M gave results equivalent to the next method, Method L, but the latter was preferred as it allowed for a wider range of parameters to be used, and the underlying assumptions seemed more plausible.   
+
+## Method L  (latent) 
+With this method, the outcomes are modelled as indicators of one or more underlying latent variables, which mediate the intervention effect. This can be achieved by first simulating a latent variable, with an effect size of either zero, for group C, or E for group I. Observed outcome measures are then simulated as having a specific correlation with the latent variable - i.e. the correlation determines the extent to which the outcomes act as indicators of the latent variable. This can be achieved using the formula:  
+$$
+r * L + \sqrt{1-r^2} * E 
+$$
+where r is the correlation between latent variable (L) and each outcome, and L is a vector of random normal deviates that is the same for each outcome variable, while E (error) is a vector of random normal deviates that differs for each outcome variable. Note that when outcome variables are generated this way, the mean intercorrelation between them will be r^2^.  Thus if we want a set of outcome variables with mean intercorrelation of .4, we need to specify r in the formula above as sqrt(r) = .632. Furthermore, the effect size for the simulated variables will be lower than for the latent variable: to achieve an effect size, E, for the outcome variables, it is necessary to specify the effect size for the latent variable, E~l~, as E/r^2^. 
+
+As noted above, the results with Method L were closely similar to those obtained using MASS, for the range of correlations and effect sizes considered here. The exception is for the case where r = 0, which is not computable with this method - i.e. it is not possible to have a set of outcomes that are indicators of the same latent factor but which are uncorrelated. As noted above, the case where r = 0 is unrealistic in any case, and so for the simulations reported here, the lowest value of r that was included was r = .2. 
+
+Both methods M and L treat all outcome measures as equivalent. In practice, of course, we will observe different effect sizes for different outcomes, but in these models, this is purely down to the play of chance.  The simulation becomes more complex if we allow for the possibility that there may be true differences in intervention effects on different outcomes.  
+
+## Model F: Underlying factor structure  
+Rather than being indicators of the same uniform latent variable, the outcomes might correspond to different latent constructs. For instance, Vickerstaff et al (2021) described an intervention for obesity where outcomes included weight and blood glucose levels. Potentially, the intervention might affect one latent construct more than the other. Following suggestions by Sainani (2022), a set of simulations was generated to consider relative power of different methods when there are two underlying latent factors that generate the outcomes, with only one factor affected by intervention. The computational approach was the same as for model L, but with two latent variables, each used to generate a block of variables. The two latent factors are uncorrelated, and only one block of variables is has a nonzero effect of intervention. 
+
+
+## Results  
+
+
+
+## 1. Power calculations.
+ 
+<!--Simulated data is created using makesimdata.Rmd.  
+This is based on the original MinNVar approach, but it saves adjusted alphas using MEff on each run.
+The filename is saved as "simulated_pMEff.csv"-->
+
+```{r countpcritical,include=F}
+countpcrit<-function(mycol,myp){
+  x <-length(which(my<myp))
+  return(x)
+}
+
+```
+
+```{r powerForManyN,include=F,echo=F}
+pfile<-here("data/sim_pMEff.csv")
+
+p.df<-read.csv(pfile)
+myN<- unique(p.df$Nsub)
+myES<- unique(p.df$ES)
+mycorr<-unique(p.df$corr)
+myout<-2:12
+  #Next we compute the proportion of all runs in each condition that give p < .05. This corresponds to familywise error rate when effect size is zero, and to power when effect size is > 0.
+  
+nouts<-c(1,myout) #we include the single case at start, and the PC (coded zero) at the end
+powertab<-expand_grid(myES,myN,mycorr,nouts) #will hold % of cases with 0 to N significant outputs.
+#Power will be 1-%0
+
+addcols<-data.frame(matrix(0,nrow=nrow(powertab),ncol=(2+length(myout))))
+colnames(addcols)<-paste0('sigp',c(0,1,myout))
+powertab<-cbind(powertab,addcols)
+  writerow <- 0
+  for (e in myES){
+    for (n in myN){
+      for (c in mycorr){
+        tempdata<-dplyr::filter(p.df,ES==e,Nsub==n,corr==c)
+        
+        mcol<-which(colnames(p.df)=='MEffsig2')
+        for (m in c(1,mcol:ncol(p.df))){
+         
+          writerow<-writerow+1
+      
+          
+          if(m==1){
+            powertab[writerow,5]<-length(which(tempdata$V1>.05))/nrow(tempdata)
+            powertab[writerow,6]<-1-powertab[writerow,5]
+          }
+          
+          if(m>1){
+            
+            t<-table(tempdata[,m])/nrow(tempdata) #proportion with a given N significant
+            nt<-as.integer(names(t))
+            for(i in 1: length(nt)){
+              powertab[writerow,(5+nt[i])]<-t[i]
+              
+            } #end of if statement
+          } #end of m loop
+        }
+      }
+    }
+  }
+  
+  #for plotting need to reshape to long form
+  
+  powerlong<-reshape(powertab, direction = "long",
+        varying = 5:ncol(powertab), sep = "")
+  
+w<-which(colnames(powerlong)=='time') #default label from reshape needs changing
+colnames(powerlong)[w]<-'Nsig'
+for (n in myN){
+  plotbit <- filter(powerlong,myN==n)
+p<-ggplot(data=plotbit, aes(x=nouts, y=sigp,fill=as.factor(Nsig))) +
+  geom_bar(stat="identity")
+
+
+p<-p + facet_grid(myES ~ mycorr)
+
+plotname<-here(paste0('power_N_',n,'.jpg'))
+ggsave(plotname)
+}
+
+#Now for each N, ES and corr, table with Nout by power
+
+powerN<-expand.grid(c=mycorr,n=myN,e=myES[2:length(myES)]) #ignore ES of 0 for power
+addcols<-data.frame(matrix(NA,nrow=nrow(powerN),ncol=12))
+colnames(addcols)<-paste0('Nout_',1:12)
+powerN<-cbind(powerN,addcols)
+thisrow<-0
+for (e in myES[2:length(myES)]){
+ for (n in myN){
+    for (c in mycorr){
+      thisrow<-thisrow+1
+      mm <- filter(powerlong,myES==e,myN==n,mycorr==c,Nsig==0) #cases with no sig value - ie beta which is 1-power
+      powerN[thisrow,4:ncol(powerN)]<-1-mm$sigp
+     
+    }
+  }
+}
+
+write.csv(powerN,'powerN.csv',row.names=F)
+        
+```
+
+
+
+## 2. Deriving a lookup table. 
+
+Table 2 shows corrected alpha values based on MEff, varying according to the correlation between outcome measures, and the number of outcome measures in the study. If the obtained p-value for *any* of the outcomes is below this value, this can be regarded as evidence of a positive effect of the intervention.  
+
+
+
+```{r makeMEff,include=F}
+makeMEff<-function(allN,allr,method=1){
 #the default method is 1, which is when all off-diagonal correlations are equal
 
-mefftab<-data.frame(matrix(NA,nrow=length(allr),ncol=1+length(allN))) #data frame to hold results
-colnames(mefftab)<-c('corr',paste0('N',allN))
-mefftab[,1]<-allr
-alphatab<-mefftab #copy the output table to make another table for alpha values
-comprtab<-mefftab #used to hold computed off diagonal means - used to check outputs for methods 2-3
+MEfftab<-data.frame(matrix(NA,nrow=length(allr),ncol=1+length(allN))) #data frame to hold results
+colnames(MEfftab)<-c('corr',paste0('N',allN))
+MEfftab[,1]<-allr
+alphatab<-MEfftab #copy the output table to make another table for alpha values
+comprtab<-MEfftab #used to hold computed off diagonal means - used to check outputs for methods 2-3
 myrow<-0
 mycol<-0
 for (i in allN){
@@ -127,363 +401,33 @@ compmean<-mean(uppert)
 
     evs = eigen(mymat)$values
     eff = 1 + (i - 1) * (1 - var(evs) / i)
-    mefftab[myrow,(1+mycol)]<-round(eff,3)
+    MEfftab[myrow,(1+mycol)]<-round(eff,3)
     comprtab[myrow,(1+mycol)]<-round(compmean,3)
  }
 }
-alphatab<-mefftab
+alphatab<-MEfftab
 alphatab[,2:ncol(alphatab)]<-round(.05/alphatab[,2:ncol(alphatab)],3)
-return(list(mefftab,alphatab,comprtab))
+return(list(MEfftab,alphatab,comprtab))
 }
 ```
 
-```{r runmakemeffv1}
-allN<-3:12
+```{r runmakeMEffv1,include=F}
+allN<-2:12
 allr<-seq(0,1,.1)
 
-myout<-makemeff(allN,allr,method=1)
-mefftab1<-myout[[1]]
+myout<-makeMEff(allN,allr,method=1)
+MEfftab1<-myout[[1]]
 alphatab1<-myout[[2]]
-```
-
-```{r runmakeffv2_superseded by v3}
-do_old<-0  #provisionally retained this in case any variables/code chunks prove vital. Plan to delete it. Set so as not to run
-if(do_old==1)
-  {allN <- seq(4,12,2)
-allr<-seq(0,.8,.1)
-#run for method2 - in this case correlations are in 2 blocks, with correlation allr within block and zero correlation across blocks
-myout<-makemeff(allN,allr,method=2)
-
-mefftab2<-myout[[1]]
-alphatab2<-myout[[2]]
-cortab2<-myout[[3]]
-
-#To compare methods 1 and 2, redo method 1 using obtained correlations for method 2
-myr<-unique(as.vector(as.matrix(cortab2[2:nrow(cortab2),2:ncol(cortab2)])))
-#make data frame that has correlation, N, Meff and method
-myout2<-makemeff(allN,myr,method=1)
-
-allcorrs<-myout2[[1]] #meff values for case for single cluster with given correlation (col1)
-#find the matching correlation for case where there are 2 clusters for each row and col
-#and then write the corresponding meff value in new file 
-nN<-length(allN)
-allcorrs[,(ncol(allcorrs)+1):(ncol(allcorrs)+nN)]<-NA #add new cols for the 2fac values
-colnames(allcorrs)[(nN+2):(nN+nN+1)]<-paste0('2fac.',colnames(allcorrs)[2:(nN+1)]) #label for 2fac
-nr<-nrow(allcorrs) #number of r values
-for (r in 1:nrow(allcorrs)){
-  m<-NA
-  thiscor<-allcorrs[r,1]
-  for (i in 1:nrow(cortab2)){
-    for (j in 2:ncol(cortab2)){
-      if(cortab2[i,j]==thiscor){m<-c(i,j)}
-  }
-  }
-  #the col to write to is j+nN
-  allcorrs[r,(m[2]+nN)]<-mefftab2[m[1],m[2]]
-}
-}
-```
-
-```{r runmakeffv3}
-allN <- seq(4,12,2)
-allr<-seq(0,.8,.1)
-#run for method2 - in this case correlations are in 2 blocks, with correlation allr within block and zero correlation across blocks
-#we'll create bigdf where the adj alpha values are side by side for the 2-cluster version and for a matrix where r is uniform and equal to the average correlation in the 2-cluster version
-
-
-for (N in allN){
-myout<-makemeff(N,allr,method=2)
-
-mefftab3<-myout[[1]]
-alphatab3<-myout[[2]]
-cortab3<-myout[[3]]
-
-if(N==allN[1]){bigdf<-cortab3[,1]}
-cortab<-cbind(cortab3[,2],alphatab3[,2])
-colnames(cortab)<-c(paste0('r_',colnames(cortab3[2])),colnames(cortab3[2]))
-
-myout1<-makemeff(N,cortab3[,2],method=1)
-newa<-myout1[[2]]
-
-bigdf<-cbind(bigdf,cortab,newa[,2])
-colnames(bigdf)[ncol(bigdf)] <-paste0(N,'_uniform')
-}
-colnames(bigdf)[1]<-'start.r'
-```
-
-
-
-
-```{r makematrix}
-#Next we see how the variation in correlations affects Meff
-#start with  a matrix of nvar correlations with mean of meanr and sd of sdr
-makemat<-function(nv,m,s){
-  mym<-matrix(1,nrow=nv,ncol=nv)
-  nvals<-length(which(upper.tri(mym)==TRUE)) #N offdiag elements in upper tri
-  rvals<-rnorm(nvals,m,s)
-  w<-which(rvals>1)
-  if(length(w)>0){rvals[w]<-.99999}
-  w<-which(rvals<0)
-  if(length(w)>0){rvals[w]<- .000001}
-  mym[lower.tri(mym)]<-rvals
-  if(s==9){ #s = 9 indicates we fit a 2 factor version - 2 groups all with correlation m within the set, but zero between
-    mym[lower.tri(mym)]<-m
-    range1<-1:(nv/2)
-    range2<-(1+nv/2):nv
-    mym[range2,range1]<-0
-  }
-  mym<-Matrix::forceSymmetric(mym,uplo="L")
-  ev<-eigen(mym)$values
-  return(ev)
-}
+ft2<-flextable(alphatab1)
+ft2<- fit_to_width(ft2, max_width =8 )
+ft2<-set_caption(ft2,'AlphaMEff for different correlation values with 12 outcome variables')
 
 ```
 
-```{r compareevs}
-niter<-1:100
-nvar<-c(3,6,9)
-meanr<-c(.3,.5,.7)
-sdr<-c(0,.1,.2,9) #9 is just a code for special situation
-df<-expand.grid(niter,nvar,meanr,sdr)
-colnames(df)<-c('Iter','Nvar','Meanr','SDr')
-df$Meff<-NA
-myrow<-0
-
- for (s in sdr){
-  for (m in meanr){
-   for (j in nvar){
-     for (i in niter){ #iterations
-     myrow<-myrow+1
-  ev<-makemat(j,m,s)  #eigenvalues
-  eff = 1 + (j - 1) * (1 - (var(ev) / j) )
-  df$Meff[myrow]<-eff
-   }
-  }
-}
-}
-
-myag<-aggregate(df$Meff,by=list(df$Nvar,df$Meanr,df$SDr),FUN=mean)
-colnames(myag)<-c('Nvar','Meanr','SDr','Meff')
-
-ggplot(myag, aes(x=Nvar, y=Meff, color=factor(SDr))) + geom_point() +
-  geom_line(aes(linetype=factor(Meanr)))
-
-```
-
-Simulated data is created using makesimdata.Rmd.  
-This is based on the original MinNVar approach, but it saves adjusted alphas using MEff on each run.
-The filename is saved as "simulated_pMeff.csv"
-
-```{r countpcritical}
-countpcrit<-function(mycol,myp){
-  x <-length(which(my<myp))
-  return(x)
-}
-
-```
-
-```{r powerForManyN,echo=F}
-pfile<-here("data/sim_pMeff.csv")
-
-p.df<-read.csv(pfile)
-
-  #Next we compute the proportion of all runs in each condition that give p < .05. This corresponds to familywise error rate when effect size is zero, and to power when effect size is > 0.
-  
-nouts<-c(1,myout) #we include the single case at start, and the PC (coded zero) at the end
-powertab<-expand_grid(myES,myN,mycorr,nouts) #will hold % of cases with 0 to N significant outputs.
-#Power will be 1-%0
-
-addcols<-data.frame(matrix(0,nrow=nrow(powertab),ncol=(2+length(myout))))
-colnames(addcols)<-paste0('sigp',c(0,1,myout))
-powertab<-cbind(powertab,addcols)
-  writerow <- 0
-  for (e in myES){
-    for (n in myN){
-      for (c in mycorr){
-        tempdata<-dplyr::filter(p.df,ES==e,Nsub==n,corr==c)
-        
-        mcol<-which(colnames(p.df)=='Meffsig2')
-        for (m in c(1,mcol:ncol(p.df))){
-         
-          writerow<-writerow+1
-      
-          
-          if(m==1){
-            powertab[writerow,5]<-length(which(tempdata$V1>.05))/nrow(tempdata)
-            powertab[writerow,6]<-1-powertab[writerow,5]
-          }
-          
-          if(m>1){
-            
-            t<-table(tempdata[,m])/nrow(tempdata) #proportion with a given N significant
-            nt<-as.integer(names(t))
-            for(i in 1: length(nt)){
-              powertab[writerow,(5+nt[i])]<-t[i]
-              
-            } #end of if statement
-          } #end of m loop
-        }
-      }
-    }
-  }
-  
-  #for plotting need to reshape to long form
-  
-  powerlong<-reshape(powertab, direction = "long",
-        varying = 5:ncol(powertab), sep = "")
-  
-w<-which(colnames(powerlong)=='time')
-colnames(powerlong)[w]<-'Nsig'
-for (n in myN){
-  plotbit <- filter(powerlong,myN==n)
-p<-ggplot(data=plotbit, aes(x=nouts, y=sigp,fill=as.factor(Nsig))) +
-  geom_bar(stat="identity")
-
-
-p<-p + facet_grid(myES ~ mycorr)
-
-plotname<-here(paste0('power_N_',n,'.jpg'))
-ggsave(plotname)
-}
-        
-```
-
-
-        writerow <- writerow+1
-        powertab[writerow,]<-NA
-        powertab$ES[writerow]<-e
-        powertab$nsub[writerow]<-n
-        powertab$corr[writerow]<-c
-        powertab$obsES[writerow]<-round(mean(tempdata$obsES),4)
-        #put power for single variable (V1) in N1 column against corr = 0
-        if(c==0){
-          powertab$N1[writerow] <-length(which(tempdata$V1<.05))/nrow(tempdata)
-        }
-        for (o in 1:length(outcomes)){
-          v<-outcomes[o]
-          critcol <- which(colnames(shorttab2)==paste0('N',v))
-          critrow <- which(shorttab2$corr==c)
-          critN <-shorttab2[critrow,critcol] #N below .05 to control FP rate at .05
-          thiscol<-paste0('r',v,'.',critN)
-          w<-which(colnames(tempdata)==thiscol)
-          power <- length(which(tempdata[,w]<.05))/nrow(tempdata)
-          thatcol <- which(colnames(powertab)==paste0('N',v))
-          powertab[writerow,thatcol]<-power
-          
-          PCcol <- which(colnames(tempdata)=='PC2')+o-1
-          thispcp <- length(which(tempdata[,PCcol]<.05))/nrow(tempdata)
-          powertab[writerow,(thatcol+length(outcomes))]<-thispcp
-          
-        }
-      }
-    }
-  }
-  # We save this to disk, though it's not really necessary, as it can be created quickly
-  
-  write.csv(powertab,paste0('data/powertab_method',method,'.csv'),row.names=F)
-}
-```
-
-
-
-
-
-
-
-```{r makelongform,echo=F}
-skiplong <-1 #flag telling us to skip this chunk if set to 1
-# Create longform dataframe;needed for alternative plots
-# This is not currently used in the writeup; just retained for possible future use
-if (skiplong == 0){
-  
-  powertab[,1]<-as.factor(powertab[,1])
-  powertab[,4]<-as.factor(powertab[,4])
-  
-  
-  power_long <- gather(powertab, Nvar, power, N1:PC12, factor_key=TRUE) #we'll put PCs in separate column later
-  
-  
-  #create new col for the PC values
-  #This is fiddly as we have to ignore the N1 rows, so have to find the right range for reading and writing
-  PCrange <- which(power_long$Nvar=="PC2")[1]:nrow(power_long) #first row of PCs to end
-  PCwrite <- which(power_long$Nvar=="N2")[1]:(which(power_long$Nvar=="N2")[1]+length(PCrange)-1)
-  power_long$PC<-NA #initialise
-  power_long$PC[PCwrite] <- power_long$power[PCrange]
-  power_long<-power_long[1:(PCrange[1]-1),]
-  
-  w<-which(is.na(power_long$power)) #find those with no power value and drop
-  w1<-c(w,which(is.na(power_long$corr))) #find those with no corr value and drop
-  power_long <- power_long[-w1,]
-}
-```
-
-
-```{r computepowergain,echo=F}
-
-# Another chunk that was used earlier but can be skipped for now
-if (skiplong==0){
-  # Will help visualise effect if we compute gain over power when a single variable is used.
-  # We'll use computed power using pwr and observedES for N1, i.e. case with single outcome
-  power_long$powerbase<-NA
-  power_long$Nvar_gain<-NA
-  power_long$PC_gain<-NA
-  startrow<-which(power_long$Nvar=='N2')[1]
-  for (i in startrow:nrow(power_long)){
-    n <- power_long$nsub[i]
-    oe <- power_long$obsES[i]
-    basepower <-pwr.t.test(n=n,d=oe,sig.level=.05,alternative='greater')$power
-    #set power to greater as we have set d to be positive
-    power_long$powerbase[i]<-basepower
-    power_long$Nvar_gain[i]<-power_long$power[i]-power_long$powerbase[i]
-    power_long$PC_gain[i]<-power_long$PC[i]-power_long$powerbase[i]
-  }
-  
-  
-  mypsumname <-paste0('p_1sided_method',method)
-  write.csv(power_long,paste0(myfolder,mypsumname,'.csv'),row.names=F)
-}
-```
-
-
-```{r plots,echo=F}
-# Another chunk that was used in earlier version, not used now. 
-# facet plot for Nvar variation
-# create variable with 'r = ' so labels are less confusing
-if (skiplong==0){
-  power_long$rlabel <-as.factor(paste0('r = ',power_long$corr)) 
-  power_long$nsub2 <-as.factor(power_long$nsub)
-  p <- ggplot(power_long[-w1,], aes(obsES,Nvar_gain ))+
-    geom_point(aes(colour = nsub2))+
-    geom_hline(yintercept=0, linetype="dotted", color = "black")
-  p<-p + facet_grid(vars(Nvar),vars(rlabel))
-  
-  #facet plot for PC
-  q_long <- power_long[power_long$Nvar!='N1',]
-  q_long$Nvar <- droplevels(q_long$Nvar)
-  q <- ggplot(q_long, aes(obsES,PC_gain ))+
-    geom_point(aes(colour = nsub2))+
-    geom_hline(yintercept=0, linetype="dotted", color = "black")
-  
-  q <-q + facet_grid(vars(Nvar),vars(rlabel))
-  
-}
-```
-
-
+`r ft2`  
+     
 ## Methods
 
-Correlated variables were simulated using in the R programming language [@rcoreteam2020]. The script to generate and analyse simulated data is available on https://osf.io/5t4se/files/. Initially, two approaches to modeling correlated variables were compared, but differences between them proved to be trivial, and so only one is reported here.
-
-### Method for simulating outcomes
-The _mvrnorm_ function of the _MASS_ package was used to generate a set of 12 outcome variables with a specified covariance matrix. For simplicity, all variables were simulated as random normal deviates with SD of 1, and the covariance matrix had a prespecified correlation, r, in all off-diagonal elements. The correlation varied across runs from 0 to .8 in steps of .2, and the number of simulated cases varied from 20 to 110 in steps of 30. Outcomes for Intervention (I) and Control (C) groups differed only in terms of the mean, which was always zero for group C, and a given effect size, e, for group I. The average observed effect size for all measures in a given condition was computed, and used as the basis for comparisons of efficiency between single and multiple measure scenarios. 
-
-This method is simple but can lead to unrealistic data: in particular  it is possible to have a set of outcomes that are independent of one another (r = 0) yet all having the same effect size. In real-world data, one would expect outcomes to be correlated, especially those that all showed an impact of intervention. Conversely, if a set of outcomes was very highly intercorrelated, then we would expect them all to show a similar intervention effect.
-
-An alternative approach was evaluated to consider such cases, in which the set of 12 outcome measures are simulated as indicators of an underlying latent variable, which mediates the intervention effect.  This can be achieved by first simulating a latent variable, with an effect size of either zero, for group C, or e for group I. Observed outcome measures are then simulated as having a specific correlation with the latent variable - i.e. the correlation determines the extent to which the outcomes act as indicators of the latent variable. This can be achieved using the formula:  
-$$
-r * L + \sqrt{1-r^2} * E 
-$$
-where r is the correlation between latent variable (L) and each outcome, and L is a vector of random normal deviates that is the same for each outcome variable, while E (error) is a vector of random normal deviates that differs for each outcome variable. Note that when outcome variables are generated this way, the mean intercorrelation between them will be r^2^.  Thus if we want a set of outcome variables with mean intercorrelation of .4, we need to specify r in the formula above as sqrt(r) = .632. Furthermore, the effect size for the simulated variables will be lower than for the latent variable: to achieve an effect size, e, for the outcome variables, it is necessary to specify the effect size for the latent variable, e~l~, as e/r^2^. It was found that when this is done, the results with this method were closely similar to those obtained using MASS, for the range of correlations and effect sizes considered here. The exception is for the case where r = 0, which is not computuable with this method - i.e. it is not possible to have a set of outcomes that are indicators of the same latent factor but which are uncorrelated. As noted above, the case where r = 0 is unrealistic in any case, and so for the simulations reported here, the lowest value of r that was included was r = .2. 
 
 
 ```{r MethodLobsES,echo=F}
@@ -504,8 +448,7 @@ if(runme ==1){
 ```
 
 ### Data reduction    
-The size of the suite of outcome variables entered into later analysis ranged from 2 to 12. For each suite size, principal components were computed from data from the C and I groups combined, using the base R function _prcomp_ from the _stats_ package.  Thus PC2 is a principal component based on the first two outcome measures, PC4 based on the first four outcome measures, and so on.  
-Power of analyses based on the principal components was compared with power obtained using the Adjust NVar approach, as specified below. 
+The size of the suite of outcome variables entered into later analysis ranged from 2 to 12. For each suite size, a corrected alpha value was computed from the MEff value obtained the simulated correlation matix. 
 
 
 ### Simulation parameters
@@ -518,46 +461,10 @@ The data generated from each combination of conditions was used to derive result
 
 For each set of conditions, on each run, a one-tailed t-test was conducted to obtain a p-value for the comparison between C and I groups, assuming C would be lower. The p-values for outcome measures were rank ordered for each run and each suite size. 
 
-```{r toydemo,echo=F}
-# Read in some pre-simulated data.  NB the simulated p.df data file is enormous and is *not* saved on github. It is created in script above, which may take hours to run.  We use it here just for convenience. Once created, it is saved so  you don't need to read in the giant p.df file. 
-tabnum <- tabnum+1
-toyfile <- 'data/toybit.csv'
-if (!file.exists(toyfile)){
-  p.df <- read.csv('data/p_1sided_methodM_allN_allES_allcorr_maxn12_nsim1000.csv')
-  nstep<-1
-  outcomes <- seq(2,12,nstep)
-  toybit <-filter(p.df,ES==0)
-  #need to create the ranks as they aren't saved with main file
-  toybit <- rankp(toybit[1:12,],outcomes)
-  wantcols<-c('V1','V2','V3','V4','r2.1','r2.2','r4.1','r4.2','r4.3','r4.4')
-  toybit <- toybit[,wantcols]
-  toybit<-round(toybit,3)
-  run <- c(1:10,999:1000)
-  toybit<-cbind(run,toybit)
-  dotrow <- rep('...',ncol(toybit))
-  toybit <- rbind(toybit[1:10,],dotrow,toybit[11:12,])
-  toybit[14,]<-c('N < .05',rep('.',4),100,2,185,14,0,0)
-  toybit[15,]<-c('p < .05',rep('.',4),.1,.002,.185,.014,0,0)
-}
-if (file.exists(toyfile)){toybit <- read.csv('data/toybit.csv')}
-ft <- flextable(toybit)
-ft<- fit_to_width(ft, max_width =8 )
-mycaption <- paste0('Table ',tabnum,': Demonstration of how MinNSig is determined')
-ft <- set_caption(ft,mycaption)
-ft
-
-write.csv(toybit,'data/toybit.csv',row.names = F)
-
-```
-### Identifying MinNSig
-To obtain MinNSig, the results were filtered to include only the runs where the null hypothesis was true, i.e. effect size = 0. Then, the proportion of p-values less than .05 was calculated for each rank for each number of outcome variables, to find the highest rank at which the overall proportion was less than .05. This is the MinNSig.  `r tabnum <- tabnum+1`
-Table `r tabnum` gives a toy example of the logic, using the case where we have either 2 or 4 outcome measures. Columns V1 to V4 show p-values for the t-test comparing the two groups each of the 4 outcome measures. Columns r2.1 and r2.2 show the same p-values rank ordered for just the first two measures; columns r4.1 to r4.4 show the p-values rank ordered for all 4 outcomes. We can then count the number of p-values that are below .05 for all runs (1000 in this case) for each ranked position. With 2 outcomes, if we take just the first ranked (lowest) p-value, the proportion lower than .05 is around .10. For the 2nd ranked p-value, the proportion drops below .05, to .002. Thus we set MinNSig to 2. 
-We can then turn to the case where we have four outcomes: the proportion of the 1st ranked p-values  below .05 is .185; the proportion of the second ranked below .05 is .014. Thus again, we set MinNSig to 2. As noted above, when the correlation between variables is zero, we can use the binomial theorem to compute values in the final row; however, when variables are intercorrelated, more p-values will be below .05, and so MinNSig may be higher.    
-Because MinNSig moves in quantum steps, the effective familywise error rate is often lower than .05. For instance, in the example above with a suite of four outcome measures, MinNSig is set to 2, but this gives p = .014, rather than .05. 
 
 
-### Computing power using Adjust NVar
-For each run of the simulation, and each number of outcome measures, we take the value of MinNSig from the previous step and compute the proportion of p-values below .05, depending on the effect size, sample size and correlation between measures. For effect sizes above zero, this proportion corresponds to the statistical power. 
+### Computing power using MEff
+For each run of the simulation, and each number of outcome measures, we take the value of MEff from the previous step and compute the proportion of p-values below .05, depending on the effect size, sample size and correlation between measures. For effect sizes above zero, this proportion corresponds to the statistical power. 
 
 Power using Adjust NVar can be compared to:  
 - power obtained with a single outcome measure for the same effect size and sample size  
@@ -566,149 +473,28 @@ Power using Adjust NVar can be compared to:
 
 ## Results
 
-### MinNSig
-`r tabnum <- tabnum+1`
-Table `r tabnum` shows results from a simulation of the Adjust NVar approach, with the values in the body of the table showing MinNSig, the minimum number of measures that would maintain the overall familywise error rate at 1 in 20, if each individual measure was evaluated at the significance criterion of .05. Because the t-test statistic used to determine p-values is adjusted for sample size, these values are independent of numbers of subjects. In principle, researchers could use Table `r tabnum` to specify in their research protocol the minimum number of outcomes that would reach their significance level in order for the null hypothesis to be rejected.
 
-```{r tab-MinNSig,echo=F}
-
-shorttabM<-read.csv('data/MinNSig_methodM.csv')
-ft<-flextable(shorttabM)
-mycap <- paste0('Table ',tabnum,': Values of MinNSig for different suite sizes of outcomes')
-ft <- set_caption(ft,mycap)
-ft<- fit_to_width(ft, max_width =8 )
-ft
-#Previously did this also for method L
-# shorttabL<-read.csv('data/MinNSig_methodL.csv')
-# ft2<-flextable(shorttabL)
-# ft2<- fit_to_width(ft2, max_width =8 )
-# mycap <- paste0('Table ',tabnum,'B: Values of MinNSig from Method L')
-# ft2 <- set_caption(ft2,mycap)
-# ft2
-
-
-```
-
-### Power of Adjust NVar approach
-
-`r fignum <- fignum+1`
-Full tables of results for all combinations of parameters are provided in the Appendix. Figures `r fignum`to `r fignum+2` plot power vs familywise error rate for different sizes of suite of outcome measures.
-
-
-```{r power-vs-fp, echo=F,warning =F}
-# Function to plot power and familywise error rate so we can compare efficiency of different approaches
-plotpower <- function(method){
-  powertab<-read.csv(paste0('data/powertab_methodM.csv'))
-  lastcol<-'N12'
-  lastcolnum <- which(colnames(powertab)==lastcol)
-  shortpower <- powertab[,1:lastcolnum]
-  if(method=="P"){
-    shortpower <- powertab[,c(1:5,(lastcolnum+1):ncol(powertab))]
-  }
-  
-  effsize <- myES
-  fpcols <- 1:(length(myN)*length(mycorr)) #cols hold values for ES=0
-  
-  firstcol<-which(colnames(shortpower)=='N1')
-  shortpower$colorcol <- shortpower$corr*10 #just a set of colors to code correlation levels
-  #shortpower$colorcol[shortpower$colorcol==0]<-1 
-  mycols<-unique(shortpower$colorcol)
-  myshapes<-unique(shortpower$shapecol)
-  shortpower$shapecol <- 1 #and a set of shapes to code Nsub
-  shortpower$shapecol[shortpower$nsub==myN[2]]<-16
-  shortpower$shapecol[shortpower$nsub==myN[3]]<-17
-  shortpower$shapecol[shortpower$nsub==myN[4]]<-15
-  mycols<-unique(shortpower$colorcol)
-  myshapes<-unique(shortpower$shapecol)
-  
-  
-  
-  
-  for (e in 2:length(myES)){  #ignore ES=0 - NB EPS conversion baulks at loop, so call each ES separately
-    setEPS()
-    postscript(paste0("Images/bigplot",method,e,".eps"),height = 11, width = 8)
-    #compute N1 values using pwr
-    solopower<-vector()
-    for (n in myN){
-      
-      solopower <-c(solopower,pwr.t.test(n=n,d=myES[e],sig.level=.05,alternative='greater')$power)
-    }
-    solopower<-round(solopower,3)
-    
-    nfigrow <- round(((length(outcomes)+3)/3),0)
-    par(mfrow=c(nfigrow,3))
-    
-    for (nvar in 1:length(outcomes)){
-      xrange <- (e-1)*length(fpcols)+fpcols
-      yrange <-fpcols
-      xcol<-firstcol+nvar
-      
-      plot(shortpower[xrange,xcol],shortpower[yrange,xcol],main=paste0('Effect size: ',effsize[e],'  Nvar:',outcomes[nvar]),col=shortpower$colorcol,pch=shortpower$shapecol,xlim=c(0,1.1),ylim=c(.001,.1),log='y',xlab='Power',ylab='Familywise error rate (log)',cex=1.5)
-      #need to specify vertical pos for N= text so doesn't collide
-      vpos <- c(.002,.0014,.0023,.0035) #!not equal because log scale!
-      for (n in 1:length(myN)){
-        abline(v=solopower[n],lty=3)
-        text((solopower[n]+.005),vpos[n],paste0('N=',myN[n]),cex=.8)
-      }
-      abline(h=.05,lty=3)
-      
-    }
-    #make plot for legend
-    plot(NULL ,xaxt='n',yaxt='n',bty='n',ylab='',xlab='', xlim=0:1, ylim=0:1)
-    legend("topleft", legend=c('.2','.4','.6','.8'),title='Correlation', pch=15, pt.cex=1.2, cex=1.2, bty='n', col = mycols[2:length(mycols)])
-    legend("topright", legend=myN,title='N per group', pch=myshapes, pt.cex=1.2, cex=1.2, bty='n')
-  
-  dev.off()
-}
-}
-```
-
-```{r doplotsM,echo=F,warning=F,fig.width=7,fig.asp=1.5,fig.cap='Power vs FWE using Adjusted Nmin. Horizontal dotted lines show power for single outcome.'}
-plotpower('M')
-
-```
-
-`r fignum <- fignum+3`
-For these plots, we see power for small, medium and large effect sizes (corresponding to Cohen's d of .3, .5 and .7). An efficient method is one that gives power of .8 or above, and a familywise error rate of .05 or less, i.e. the results should cluster in the bottom right quadrant.  Power, which depends on sample size, is shown for a study with a single outcome in the vertical dotted lines, with an alpha of .05 shown in the horizontal dotted line. We can compare by eye how well Adjust Nmin with multiple outcomes compares with a single outcome for the same sample size. With just two outcome measures we obtain a very low familywise error rate but power is generally worse than for the single outcome case, except when the effect size is large. This is because when using Adjust NMin with two outcomes,  both outcomes have to achieve p < .05. With 3 outcomes, again Adjust NMin requires we have at least 2 individual outcomes with p < .05: this gives power equivalent to that of a single variable, but a lower familywise error rate is achieved. When the number of outcomes is 4 or more, the benefit of Adjust NMin over a single outcome becomes more evident, with higher power coupled with a lower familywise error rate. The specific results depend also on the intercorrelation between outcomes (which in turn influences the MinNSig value, see Table `r tabnum`): a moderate level of intercorrelation (between .4 and .6) generally gives an efficient measure. 
-
-
-
-
-Figures `r fignum` to `r fignum+3` gives equivalent plots for power from principal components 
-
-
-
-```{r doplotsPCA,echo=F,warning=F,fig.width=7,fig.asp=1.5,fig.cap='Power vs FWE using principal components. Horizontal dotted lines show power for single outcome.'}
-
-plotpower('P')
-
-
-
-```
 
 The Principal Components plots show all points are to the right of the vertical line denoting power from a single outcome, i.e. this method achieves higher power than a single outcome measure for each size of suite of outcomes. Familywise error rate clusters around .05. If we compare how Adjust NVar compares with Principal Components, with 3 or more outcomes the power is generally slightly lower, but the tradeoff between power and familywise error (expressed as a ratio) is higher for Adjust NVar. 
 
 ## Discussion
 
-The logic of conventional multiple testing is turned on its head with the Adjust NVar approach, in that instead of adjusting the p-value used for significance (as in the Bonferroni correction, or methods based on False Discovery Rate), we adjust the number of individual outcome measures that we need to reach the intended significance criterion.  This value can be easily computed using the binomial theorem for a given suite size of outcomes if the measures are uncorrelated, but in the context of intervention trials uncorrelated measures is an unrealistic assumption. 
-
-One advantage of this approach is that it is more compatible with trials of interventions that are expected to affect a range of related processes, as is common in some fields such as education or speech and language therapy. In such cases, the need to specify a single primary outcome tends to create difficulties, because it is often unclear which of a suite of outcomes is likely to show an effect. Note that the Adjust NVar approach does not give the researcher free rein to engage in p-hacking: the larger the suite of measures included in the study, the higher the value of MinNSig will be. It does, however, remove the need to put all one's eggs in one basket by pre-specifying one measure as the primary outcome. 
+Some interventions are expected to affect a range of related processes.  In such cases, the need to specify a single primary outcome tends to create difficulties, because it is often unclear which of a suite of outcomes is likely to show an effect. Note that the MEff approach does not give the researcher free rein to engage in p-hacking: the larger the suite of measures included in the study, the lower the adjusted alpha will be. It does, however, remove the need to put all one's eggs in one basket by pre-specifying one measure as the primary outcome. 
 
 A second advantage is that in effect, by including multiple outcome measures, one can improve the efficiency of a study, in terms of the trade-off between power and familywise errors. A set of outcome measures may be regarded as imperfect proxy indicators of an underlying latent construct, so we are in effect building in a degree of within-study replication if we require that more than one measure shows the same effect in the same direction before we reject the null hypothesis. 
 
-The comparison with power and familywise error rate from principal components shows that the latter approach is more consistent in improving power over a study with a single outcome than the Adjust NVar approach, regardless of the size of the suite of outcomes, but it does not influence familywise error rate. This is a consequence of the quantum nature of the adjustment with Adjust NVar, where the same value of MinNVar may be used with varying sizes of outcome suite, which can lead to values of familywise error rate well below .05. For instance, obtaining 2 p-values below .05 in a suite of two outcomes is a more unusual circumstance than obtaining 2 values this extreme in a suite of 3 or 4 outcomes. Nevertheless, the ratio of power to familywise error is generally higher for Adjust NVar than for principal components. 
+The comparison with power and familywise error rate from principal components shows that ...
 
-A possible disadvantage of Adjust NVar over principal components is that this approach is likely to tempt researchers to interpret specific outcomes that fall below the .05 threshold as meaningful. They may be, of course, but this simulation demonstrates that when we create a suite of outcomes that differ only by chance, it is common for only a subset of them to reach the significance criterion. Any recommendation to use Adjust NVar should be accompanied by a warning that a suite of outcomes should be selected as representative of the underlying construct the intervention is designed to influence, in effect serving as replicate measures, all of which should be equally promising as indicators of an intervention effect. If a subset of outcomes show an effect of intervention, this could be due to chance. It would be necessary to run a replication to have confidence in a particular pattern of results. 
+A possible disadvantage of using the MEff over principal components is that this approach is likely to tempt researchers to interpret specific outcomes that fall below the .05 threshold as meaningful. They may be, of course, but this simulation demonstrates that when we create a suite of outcomes that differ only by chance, it is common for only a subset of them to reach the significance criterion. Any recommendation to use MEff should be accompanied by a warning that a suite of outcomes should be selected as representative of the underlying construct the intervention is designed to influence, in effect serving as replicate measures, all of which should be equally promising as indicators of an intervention effect. If a subset of outcomes show an effect of intervention, this could be due to chance. It would be necessary to run a replication to have confidence in a particular pattern of results. 
 
-It is also worth noting that results obtained with this approach depend crucially on assumptions embodied in the simulation that is used to derive predictions. Outcome measures simulated here are normally distributed, and uniform in their covariance structure.  It would be possible to generate datasets with different underlying covariance structures to be tested in the same way, but that is beyond the scope of this paper. 
+It is also worth noting that results obtained with this approach depend crucially on assumptions embodied in the simulation that is used to derive predictions. Outcome measures simulated here are normally distributed, and uniform in their covariance structure.  It would be of interest to evaluate MEff in datasets with different variable types, such as those used by Vickerstaff et al (2021) that included binary as well as continuous data, as well as modeling the impact of missing data. 
 
-Perhaps the main advantage of this approach is that once the values of MinNSig have been specified (as in Table `r tabnum`), the method is very simple to apply, and could be used in two ways. First, it can be used _a priori_ to specify in a protocol the number of outcomes that would need to achieve the conventional .05 level of significance, in order for the intervention to be deemed effective. This assumes that the researcher already has a rough idea of the degree of intercorrelation between outcome measures, but a range somewhere between .4 and .6 is a reasonable assumption for many behavioural studies. Pre-registering a specific level of MinSigN would help guard against a tendency to explore different kinds of correction for multiple hypothesis testing only after viewing the data [@lazic2021]. 
 
-Second, the simplicity of the approach makes it useful for evaluating published studies that report multiple outcomes but may not have been analysed optimally. We started with the example of a study where there were six outcome measures, none of which met the Bonferroni-corrected significance level of .05/6 = .008, but two of which met p < .05. From Table `r tabnum` we can see that to be confident in a true intervention effect, assuming correlated outcomes, then at least three out of six outcomes need to be significant at the .05 level. In this case, therefore, we do not reject the null hypothesis. 
+Compared to most other approaches, MEff is relatively simple. It could potentially be used to reevaluate published studies that report multiple outcomes but may not have been analysed optimally, provided we have some information on the average correlation between outcome measures. 
 
-In sum, the Adjust NVar method shows how inclusion of multiple outcomes can be a positive strategy in intervention studies, and can give stronger statistical evidence than a single outcome, provided that attention is paid to the need for several outcomes to reach a significance threshold. 
+In sum, the veto on use of multiple outcomes in intervention studies does not lead to optimal study design. Inclusion of several related outcomes can increase statistical power, without increasing the false positive rate, provided appropriate correction is made for the multiple testing. 
 
- 
+
 
 # Appendix
 
@@ -733,48 +519,10 @@ ft2
 
 # Table titles  
 
-Table 1. Demonstration of how MinNSig is determined.  
-
-__Legend__: V1 to V4 are p-values from one-sided t-test, one row for each run of simulation in a given condition. Columns with prefix r2 or r4 show the same p-values rank ordered for either the first two columns, or the first four columns. The final two rows show the number and the proportion of values falling below .05 for that column.  
-
-Table 2. Values of MinNSig for different suite sizes of outcomes. 
-
-__Legend__: Entries in body of table show smallest N variables reaching p < .05 that preserve familywise error rate at .05 or less. N prefix denotes suite size for a set of outcomes. Corr indicates correlation between outcomes. 
-
-
-Table 3 (Appendix). Power table for Adjusted NVar Method (where ES = 0, values are familywise error rate).  
-
-__Legend__: Entries in body of table are proportion of runs giving p < .05. Where ES = 0, this corresponds to familywise error rate; where ES > 0, it is statistical power. Column labels: ES is effect size specified for simulation, obsES is average observed ES for an outcome in this condition, nsub is number of subjects per group, and corr is correlation between outcomes.  N1 through N12 specifies size of the suite of outcome variables. Note: only one power value is given for condition N1, as there is no influence of correlation. 
-
-Table 4 (Appendix). Power table for Principal Components (where ES = 0, values are familywise error rate).  
-
-__Legend__: Entries in body of table are proportion of runs giving p < .05. Where ES = 0, this corresponds to familywise error rate; where ES > 0, it is statistical power. Column labels: ES is effect size specified for simulation, obsES is average observed ES for an outcome in this condition, nsub is number of subjects per group, and corr is correlation between outcomes.  PC2 through PC12 specifies size of the suite of outcome variables contributing to each principal component.  
 
 # Figure titles  
 
-Figure 1. Power x Familywise error rate using Adjust NVar method, for small effect size.  
 
-__Legend__: Symbols denote sample size per group, and colours denote correlation between outcomes (see Key). Vertical dotted lines show power for single outcome at different sample sizes. Horizontal line shows type I error rate of .05. 
-
-Figure 2. Power x Familywise error rate using Adjust NVar method, for medium effect size.  
-
-__Legend__: Symbols denote sample size per group, and colours denote correlation between outcomes (see Key). Vertical dotted lines show power for single outcome at different sample sizes. Horizontal line shows type I error rate of .05. 
-
-Figure 3. Power x Familywise error rate using Adjust NVar method, for large effect size.  
-
-__Legend__: Symbols denote sample size per group, and colours denote correlation between outcomes (see Key). Vertical dotted lines show power for single outcome at different sample sizes. Horizontal line shows type I error rate of .05. 
-
-Figure 4. Power x Familywise error rate using 1st principal component, for small effect size.  
-
-__Legend__: Symbols denote sample size per group, and colours denote correlation between outcomes (see Key). Vertical dotted lines show power for single outcome at different sample sizes. Horizontal line shows type I error rate of .05. 
-
-Figure 5. Power x Familywise error rate using 1st principal component, for medium effect size.  
-
-__Legend__: Symbols denote sample size per group, and colours denote correlation between outcomes (see Key). Vertical dotted lines show power for single outcome at different sample sizes. Horizontal line shows type I error rate of .05. 
-
-Figure 6. Power x Familywise error rate using 1st principal component, for large effect size.  
-
-__Legend__: Symbols denote sample size per group, and colours denote correlation between outcomes (see Key). Vertical dotted lines show power for single outcome at different sample sizes. Horizontal line shows type I error rate of .05.
 
 # Notes  
 

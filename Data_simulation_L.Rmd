@@ -1,0 +1,342 @@
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+require(tidyverse)
+require(flextable)
+require(MASS)
+require(pwr)
+require(graphics)
+
+
+```
+
+
+```{r makeMethodL,echo=F}
+# # METHOD L
+# This function generates a mylatent vector plus maxn variables for N subjects.
+# The mylatent vector is saved in the last column. This is not returned as it is only used to check that the correct correlation structure has been achieved.
+# The maxn variables are saved in the first maxn columns. They have a correlation, r, with the mylatent vector.
+# The average intercorrelation between maxn variables is sqrt(r)
+# The columns after maxn contain the principal component scores from the different levels of N outcomes for each subject, e.g. PCA2, PCA4, and PCA6, if we are considering outcome sets of 2, 4 or 6 variables. 
+
+makecorL <- function(N,outcomes,r,E,sd){ #we generate raw data for max value of outcomes
+  #principal components created at a later step
+  #  NB outcomes is a vector of possible N outcomes - e.g. c(2, 4, 6) if you want to simulate data to consider 2, 4, or 6 outcomes
+  # we always simulate individual variables up to the maximum number of outcomes, e.g. in examples above, would simulate 6 outcome variables. These are in the first columns.
+  
+  maxn <- max(outcomes)
+   rvals <-data.frame(matrix(NA,nrow=N,ncol=(1+maxn+length(outcomes)))) 
+  colnames(rvals)<-c(paste0("V",1:maxn),paste0("PC",outcomes),'latent')
+
+  ncols <- ncol(rvals)
+
+  mylatent <- rnorm(N,E,sd) #this is the latent variable
+  for (v in 1:maxn){
+    rvals[,v]<-r*mylatent+sqrt(1-r^2)*rnorm(N,0,1) #r determines correlation with latent variable, mylatent
+  }
+  
+
+  return(rvals) #we don't save the mylatent value, which is latent
+}
+
+```
+
+```{r makeMethodL2,echo=F}
+# # Same as METHOD L, except 2 values of mylatent are simulated, one for each block of variables
+#if method is specified as 2, then 2 blocks both with effect. If method specified as 3, then 2 blocks, only one of which has effect
+
+makecorL2 <- function(N,outcomes,r,E,sd,mymethod){ #we generate raw data for max value of outcomes
+  
+  maxn <- max(outcomes)
+   rvals <-data.frame(matrix(NA,nrow=N,ncol=(1+maxn+length(outcomes)))) 
+  colnames(rvals)<-c(paste0("V",1:maxn),paste0("PC",outcomes),'latent')
+
+  ncols <- ncol(rvals)
+  mylatent <- rnorm(N,E,sd) #this is the latent variable for block 1 (odd outcomes)
+  mylatent2 <- rnorm(N,E,sd) #this is the latent variable2 for 2nd block (even outcomes)
+  if(mymethod==3)
+  {
+      mylatent2 <- rnorm(N,0,sd)  #for method 2 the 2nd block always has null effect
+  }
+  #if we want case where only factor 1 has effect, then use 0 rather than E for mylatent2
+   block1 <- seq(1,maxn,2)
+   block2 <- seq(2,maxn,2)
+  for (v in block1){
+    rvals[,v]<-r*mylatent+sqrt(1-r^2)*rnorm(N,0,1) #r determines correlation with latent variable, mylatent
+  }
+   for (v in block2){
+    rvals[,v]<-r*mylatent2+sqrt(1-r^2)*rnorm(N,0,1) #r determines correlation with latent variable, mylatent
+  }
+  
+
+  return(rvals) #we don't save the mylatent value, which is latent
+}
+
+```
+
+
+
+```{r createp,echo=F}
+# Make data frame of p-values.
+#For each run of the simulation, a one-tailed t-test is used to compare groups I and C; we can use a one-tailed test as we assume the intervention group (I) will obtain a higher score than the control group (C).  This generates a huge data frame of p-values, one per run, covering all values of effect size, correlation and sample size. P-values are given for individual variables, and for the principal components. 
+
+
+#Here we use method L1 
+
+
+#Method L1: all outcomes load on the same latent factor
+#Method L2: outcomes divided by two latent factors but both show effect
+#Method L3: outcomes divided by two latent factors, only one shows effect.
+  
+method <- "L1"
+
+alpha <- .05
+nsim <- 1000 #number of runs for each combination of mycorr, mynvar,myES and myN.
+#for final version, have v. large value - for testing try with smaller nsims
+
+mycorr <- c(0,.2,.4,.6,.8) #intercorrelations between variables to consider
+
+usecorr <- c(.0001,.2,.4,.6,.8)#we use lower val of .0001 as equivalent to null as this makes it possible to get correct ES when we use method L
+nstep<-2 
+outcomes <- seq(2,12,nstep) #number of outcome variables to consider
+maxn <- max(outcomes) #we always create max number of variables, and then use subsets of this to examine smaller Ns
+myES <- c(0,.3,.5,.8) #effect sizes to consider
+myN <- c(20,50,80,110) #Ns per group to consider
+mypname <-paste0('p_1side_method',method,'_allN_allES_allcorr_maxn',maxn,'_nsim',nsim,'_nstep',nstep) #filename to save csv file with simulated p-values (saves time when many runs used)
+myfolder <-'data/'
+
+
+  #set up dataframe for holding pvalues
+  p.df <- data.frame(matrix(NA,nrow=nsim*length(mycorr)*length(myN)*length(myES),ncol=maxn+6+2*length(outcomes)))
+  colnames(p.df) <-c('run','ES','Nsub','corr','meanr','obsES',paste0('V',1:maxn),paste0('PC',outcomes),paste0('alphaMEff',outcomes)) 
+
+  coloffset <- which(colnames(p.df)=='V1')-1
+  thisrow <- 0
+  for (s in 1:nsim){
+    for (rval in 1:length(mycorr)){
+      for (e in myES){
+        for(n in myN){
+          thisrow <- thisrow+1
+          c<-mycorr[rval]
+          u <-usecorr[rval]
+          p.df$run[thisrow] <- s
+          p.df$corr[thisrow] <- c
+          p.df$ES[thisrow]<-e
+          p.df$Nsub[thisrow]<-n
+          
+#makecorL and makecorL2 create a data frame for each run with scores for outcomes
+#Those in dataframe I have the effect size added to the latent variable
+          
+if (method=='L1'){
+              C <- makecorL(n,outcomes,sqrt(c),0,1) #intercorrelations will be mycor^2
+            I <- makecorL(n,outcomes,sqrt(c),e/sqrt(u),1) #group I is intervention group: has ES added to mylatent value
+            #for method L we adjust ES, as this will be higher for latent variable than for the indicators. The addition of .01 to c is just to avoid crash when c =0. The c=0 case is problematic in any case - as explained in the paper.
+}
+if(method=='L2'){
+  mymethod<-2
+  #note that the function now has a final 'mymethod' term that distinguishes L2 and L3
+            C <- makecorL2(n,outcomes,sqrt(c),0,1,mymethod) #intercorrelations will be mycor^2
+            I <- makecorL2(n,outcomes,sqrt(c),e/sqrt(u),1,mymethod) #group I is intervention group: has ES added to mylatent value
+            #for method L2, same as L1, except outcomes load on 2 factors corresponding to odd or even measures 
+        
+}    
+          if(method=='L3'){
+            mymethod <- 3
+  #note that the function now has a final 'mymethod' term that distinguishes L2 and L3
+            C <- makecorL2(n,outcomes,sqrt(c),0,1,mymethod) #intercorrelations will be mycor^2
+            I <- makecorL2(n,outcomes,sqrt(c),e/sqrt(u),1,mymethod) #group I is intervention group: has ES added to mylatent value
+            #for method L2, same as L1, except outcomes load on 2 factors corresponding to odd or even measures 
+        
+}   
+        #create principal components: this based on I and C vals combined
+        thiscol<-maxn #we will add PCs as next set of cols
+        n2 <- 2*nrow(C)
+        for(o in outcomes){
+          
+          varboth <-rbind(I[,1:o],C[,1:o]) #both groups, all columns for this outcome suite
+
+          pwts<- prcomp(varboth)$rotation[,1]
+      #principal component may have opposite polarity, so flip if wts negative
+          if(mean(pwts)<0){pwts<-pwts*(-1)}
+           
+          mypc<-apply(varboth[,1:o],1,function(x) sum(pwts*x)) #compute principal component score for each row of data
+          thiscol<-thiscol+1
+          I[,thiscol]<-mypc[1:nrow(I)]
+          C[,thiscol]<-mypc[(1+nrow(I)):n2]
+          
+                      
+       #compute alphaMeff from eigenvalues from correlation matrix
+          mymat<-cor(varboth)
+          evs <- eigen(mymat)$values
+          MEff <- 1 + (o - 1) * (1 - var(evs) / o)
+          alphaMEff <- alpha/MEff
+          mycolname<-paste0('alphaMEff',o)
+          w<-which(colnames(p.df)==mycolname)
+          p.df[thisrow,w]<-alphaMEff
+
+        }
+        
+        #get pvalue from t-test for all variables and PCs
+          for (v in 1:(maxn+length(outcomes))) {
+            tempt <- t.test(C[,v],I[,v],alternative='less') #one-tailed t-test ; predict C<I
+            p.df[thisrow,(v+coloffset)]<-tempt$p.value
+            
+          }
+       
+ 
+        #compute average observed effect size
+          allC<-pull(C[,1:maxn]) #converts all df values to vector
+          allI<-pull(I[,1:maxn])
+          p.df$obsES[thisrow]<-(mean(allI)-mean(allC))/mean(sd(c(allC),sd(allI)))
+          
+        #compute averaged off-diagonal value of r 
+        mymat<-cor(varboth)
+        meanr<-mean(mymat[upper.tri(mymat)])
+        p.df$meanr[thisrow]<-meanr
+        
+  
+        }
+      }
+    }
+  }
+  write.csv(p.df,paste0(myfolder,mypname,'.csv'),row.names=F)
+  # we now have p.df, which is a big dataframe with p-values from all the simulations, for max N variables at all corrs, effect sizes and sample sizes.
+
+
+```
+
+
+Count significant p values for power plot
+
+```{r countpcritical,include=F}
+countpcrit<-function(mydf,mycol,myp){
+  x <-length(which(mydf[,mycol]<myp))
+  return(x)
+}
+
+```
+
+```{r countsigp}
+#identify the file for the specific method (1, 2 or 3)
+nupname<-paste0('data/simulated_pMEff_',method,'.csv')
+pfile<-here(nupname)
+
+p.df<-read.csv(pfile)
+myN<- unique(p.df$Nsub)
+myES<- unique(p.df$ES)
+mycorr<-unique(p.df$corr)
+nouts<-seq(2,12,2)
+  #Next we compute the proportion of all runs in each condition that give p < .05. This corresponds to familywise error rate when effect size is zero, and to power when effect size is > 0.
+  
+powertab<-expand_grid(myES,myN,mycorr,nouts) #will hold % of cases with 0 to N significant outputs.
+#Power will be 1-%0
+
+powertab$meancorr<-NA
+powertab$Bonf.sigp<-NA
+powertab$PCA.sigp<-NA
+powertab$MEff.sigp<-NA
+
+        #Now add mean offdiagonal r. For method 1 this should be equal to corr, but for other methods, it will be lower because some variables uncorrelated.
+  mymeancorr<-aggregate(p.df$meanr,by=list(p.df$corr,p.df$Nsub,p.df$ES),FUN='mean')
+  powertab$meancorr<-rep(round(mymeancorr$x,3),each=6)
+
+  writerow <- 0
+   for (e in myES){
+        for (n in myN){
+       for (c in mycorr){
+   
+        tempdata<-dplyr::filter(p.df,ES==e,Nsub==n,corr==c)
+        
+
+        
+        for (o in nouts){
+          #find columns relevant for this suite size
+        vcol<-which(colnames(p.df)=='V1')
+        vrange<-vcol:(vcol+o-1)
+        pcol<-which(colnames(p.df)==paste0('PC',o))
+        mcol<-which(colnames(p.df)==paste0('alphaMEff',o))
+        writerow<-writerow+1
+        
+    #First do Bonferroni; critical alpha depends on nouts  
+        crit.alpha<-alpha/o
+        t<-tempdata[,vrange]
+        t1<-t
+        t1[,]<- 0
+        for (mycol in 1:ncol(t1)){
+        w<-which(t[,mycol]<crit.alpha)
+        t1[w,mycol]<-1
+        }
+        pvector<-rowSums(t1[,1:o])
+        powertab$Bonf.sigp[writerow]<-length(which(pvector>0))
+      
+      #Next do PCA
+       crit.alpha=.05
+       powertab$PCA.sigp[writerow]<-length(which(tempdata[,pcol]<crit.alpha))
+       
+      #Next do MEff
+        t<-tempdata[,c(vrange,mcol)]
+        t1<-t
+        t1[,1:o]<- 0
+        for (mycol in 1:ncol(t1)){
+        w<-which(t[,mycol]<t[,(o+1)]) #find values less than MEff for this suite size
+        t1[w,mycol]<-1
+        }
+        pvector<-rowSums(t1[,1:o])
+        powertab$MEff.sigp[writerow]<-length(which(pvector>0))
+
+        
+          } #end of m loop
+
+        }
+      }
+    }
+  
+
+  
+
+```
+  
+  
+  #for plotting need to reshape to long form
+  
+  powerlong<-reshape(powertab, direction = "long",
+        varying = 5:ncol(powertab), sep = "")
+  
+w<-which(colnames(powerlong)=='time') #default label from reshape needs changing
+colnames(powerlong)[w]<-'Nsig'
+for (n in myN){
+  plotbit <- filter(powerlong,myN==n)
+p<-ggplot(data=plotbit, aes(x=nouts, y=sigp,fill=as.factor(Nsig))) +
+  geom_bar(stat="identity")
+
+
+p<-p + facet_grid(myES ~ mycorr)
+
+plotname<-here(paste0('power_N_',n,'.jpg'))
+ggsave(plotname)
+}
+
+#Now for each N, ES and corr, table with Nout by power
+
+powerN<-expand.grid(c=mycorr,n=myN,e=myES[2:length(myES)]) #ignore ES of 0 for power
+addcols<-data.frame(matrix(NA,nrow=nrow(powerN),ncol=12))
+colnames(addcols)<-paste0('Nout_',1:12)
+powerN<-cbind(powerN,addcols)
+thisrow<-0
+for (e in myES[2:length(myES)]){
+ for (n in myN){
+    for (c in mycorr){
+      thisrow<-thisrow+1
+      mm <- filter(powerlong,myES==e,myN==n,mycorr==c,Nsig==0) #cases with no sig value - ie beta which is 1-power
+      powerN[thisrow,4:ncol(powerN)]<-1-mm$sigp
+     
+    }
+  }
+}
+
+write.csv(powerN,'powerN.csv',row.names=F)
+        
+```
+
+
