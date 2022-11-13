@@ -8,6 +8,7 @@ require(MASS)
 require(pwr)
 require(graphics)
 require(here)
+require(reshape2) #for heatmap
 ```
 
 
@@ -85,7 +86,7 @@ nstep<-2
 outcomes <- seq(2,12,nstep) #number of outcome variables to consider
 maxn <- max(outcomes) #we always create max number of variables, and then use subsets of this to examine smaller Ns
 myES <- c(0,.3,.5,.8) #effect sizes to consider
-myN <- c(20,50,80,110) #Ns per group to consider
+myN <- c(20,50,80) #Ns per group to consider
 mypname <-paste0('p_1side_method',method,'_allN_allES_allcorr_maxn',maxn,'_nsim',nsim,'_nstep',nstep) #filename to save csv file with simulated p-values (saves time when many runs used)
 myfolder <-'data/'
   #set up dataframe for holding pvalues
@@ -100,7 +101,7 @@ myfolder <-'data/'
         for(n in myN){
           thisrow <- thisrow+1
           c<-mycorr[rval]
-          u <-usecorr[rval]
+          u <-usecorr[rval] #this is a hangover from when we tried to include c=0; c and u are the same here
           p.df$run[thisrow] <- s
           p.df$corr[thisrow] <- c
           p.df$ES[thisrow]<-e
@@ -110,9 +111,9 @@ myfolder <-'data/'
 #Those in dataframe I have the effect size added to the latent variable
           
 if (method=='L1'){
-              C <- makecorL(n,outcomes,sqrt(c),0,1) #intercorrelations will be mycor^2
-            I <- makecorL(n,outcomes,sqrt(c),e/sqrt(u),1) #group I is intervention group: has ES added to mylatent value
-            #for method L we adjust ES, as this will be higher for latent variable than for the indicators. The addition of .01 to c is just to avoid crash when c =0. The c=0 case is problematic in any case - as explained in the paper.
+            C <- makecorL(n,outcomes,sqrt(c),0,1) #intercorrelations will be mycor^2
+            I <- makecorL(n,outcomes,sqrt(c),e/sqrt(u),1)  #group I is intervention group: has ES added to mylatent value. Note that to get correct E for the observed vars, need to use e/sqrt(u)
+            
 }
 if(method=='L2'){
   mymethod<-2
@@ -188,7 +189,7 @@ if(method=='L2'){
 
 ```{r countsigp}
 #identify the file for the specific method (1, 2 or 3)
-method <-3
+method <-1
 alpha<-.05
 nupname<-paste0('data/simulated_pMEff_L',method,'.csv')
 pfile<-here(nupname)
@@ -199,6 +200,7 @@ myES<- unique(p.df$ES)
 mycorr<-unique(p.df$corr)
 if(mycorr[1]==0) {mycorr<-mycorr[-1]} #
 nouts<-seq(2,12,2) #N output variables, assuming step size 2
+nouts<-c(1,nouts) #include case of single variable
 
   #We compute the proportion of all runs in each condition that give p < .05. This corresponds to familywise error rate when effect size is zero, and to power when effect size is > 0.
   
@@ -229,22 +231,29 @@ powertab$MEff.sigp<-NA #N runs signif with MEff
         writerow<-writerow+1
         
     #First do Bonferroni; critical alpha depends on nouts  
+        
         crit.alpha<-alpha/o
-        t<-tempdata[,vrange]
+        t<-as.data.frame(tempdata[,vrange]) #need to specify data frame or problems ensure from the case where o = 1
         t1<-t
         t1[,]<- 0
         for (mycol in 1:ncol(t1)){
         w<-which(t[,mycol]<crit.alpha)
         t1[w,mycol]<-1
         }
+        pvector<-t1[,1] #default for one outcome
+        if(o>1){
         pvector<-rowSums(t1[,1:o])
+        }
         powertab$Bonf.sigp[writerow]<-length(which(pvector>0))
       
       #Next do PCA
+        if(o>1){
        crit.alpha=.05
        powertab$PCA.sigp[writerow]<-length(which(tempdata[,pcol]<crit.alpha))
-       
+        }
+        
       #Next do MEff
+        if(o>1){
         t<-tempdata[,c(vrange,mcol)]
         t1<-t
         t1[,1:o]<- 0
@@ -254,6 +263,7 @@ powertab$MEff.sigp<-NA #N runs signif with MEff
         }
         pvector<-rowSums(t1[,1:o])
         powertab$MEff.sigp[writerow]<-length(which(pvector>0))
+        }
         powertab$meancorr[writerow]<-mymeancorr
         
           } #end of m loop
@@ -272,7 +282,7 @@ powertab$MEff.sigp<-NA #N runs signif with MEff
 #for plotting need to reshape to long form
   
 #focus on nouts from 2 to 8 and ditch null effects
-newnouts<-c(2,4,6,8)
+newnouts<-c(1,2,4,6,8)
 powertab<-filter(powertab,nouts%in% newnouts,myES>0)
 
 for (n in myN){
