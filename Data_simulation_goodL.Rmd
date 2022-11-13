@@ -281,11 +281,20 @@ powertab$MEff.sigp<-NA #N runs signif with MEff
 ```{r dopowerplot}  
 #for plotting need to reshape to long form
   
+
+
+
 #focus on nouts from 2 to 8 and ditch null effects
 newnouts<-c(1,2,4,6,8)
 powertab<-filter(powertab,nouts%in% newnouts,myES>0)
-
+myN<-c(20,50,80)
 for (n in myN){
+power3 <- round(pwr.t.test(n=n,d=0.3,sig.level=.05,alternative="greater")$power,3)
+power5 <- round(pwr.t.test(n=n,d=0.5,sig.level=.05,alternative="greater")$power,3)
+power8 <- round(pwr.t.test(n=n,d=0.8,sig.level=.05,alternative="greater")$power,3)
+if(method==3){power3<- .5*(power3+.05)}
+if(method==3){power5<- .5*(power5+.05)}
+if(method==3){power8<- .5*(power8+.05)}
 
   plotbit <- filter(powertab,myN==n)
   #make long form with the 3 methods stacked above each other
@@ -303,16 +312,26 @@ for (n in myN){
 
   plotbitlong$sigp<-plotbitlong$sigp/nsim
 
-p<-ggplot(plotbitlong,aes(x=nouts,y=sigp))+
-  geom_line(aes(color=as.factor(method),linetype=as.factor(myES)))
+  plotbitlong$Correction = as.factor(plotbitlong$method)
+  plotbitlong$`Effect size` = as.factor(plotbitlong$myES)
+  plotbitlong<-filter(plotbitlong,nouts>1)
+  p<-ggplot(plotbitlong,aes(x=nouts,y=sigp))+
+    xlim(0,8)+
+  geom_line(aes(color=Correction,linetype=`Effect size`))+
+  geom_point(x=1,y=power3,shape=0)+
+  geom_point(x=1,y=power5,shape=1)+
+  geom_point(x=1,y=power8,shape=2)+
+  labs(x='N outcomes',y = 'Power')
+  
+  
 
 
 p<-p + facet_grid( ~ mycorr)
 
 
 
-plotname<-here(paste0('Method_',method,'_power_N_',n,'.jpg'))
-ggsave(plotname)
+plotname<-here(paste0('Figures/Method_',method,'_power_N_',n,'.jpg'))
+ggsave(plotname,width=8,height=4)
 
 }
 
