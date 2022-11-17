@@ -12,8 +12,8 @@ require(reshape2) #for heatmap
 ```
 
 
-```{r makeMethodL,echo=F}
-# # METHOD L
+```{r makemodelL,echo=F}
+# # model L
 # This function generates a mylatent vector plus maxn variables for N subjects.
 # The mylatent vector is saved in the last column. This is not returned as it is only used to check that the correct correlation structure has been achieved.
 # The maxn variables are saved in the first maxn columns. They have a correlation, r, with the mylatent vector.
@@ -33,14 +33,14 @@ makecorL <- function(N,outcomes,r,E,sd){ #we generate raw data for max value of 
     rvals[,v]<-r*mylatent+sqrt(1-r^2)*rnorm(N,0,1) #r determines correlation with latent variable, mylatent
   }
   
-  return(rvals) #we don't save the mylatent value, which is latent
+  return(rvals) 
 }
 ```
 
-```{r makeMethodL2,echo=F}
-# # Same as METHOD L, except 2 values of mylatent are simulated, one for each block of variables
-#if method is specified as 2, then 2 blocks both with effect. If method specified as 3, then 2 blocks, only one of which has effect
-makecorL2 <- function(N,outcomes,r,E,sd,mymethod){ #we generate raw data for max value of outcomes
+```{r makemodelL2,echo=F}
+# # Same as model L, except 2 values of mylatent are simulated, one for each block of variables
+#if model is specified as 2, then 2 blocks both with effect. If model specified as 3, then 2 blocks, only one of which has effect
+makecorL2 <- function(N,outcomes,r,E,sd,mymodel){ #we generate raw data for max value of outcomes
   
   maxn <- max(outcomes)
    rvals <-data.frame(matrix(NA,nrow=N,ncol=(1+maxn+length(outcomes)))) 
@@ -48,9 +48,9 @@ makecorL2 <- function(N,outcomes,r,E,sd,mymethod){ #we generate raw data for max
   ncols <- ncol(rvals)
   mylatent <- rnorm(N,E,sd) #this is the latent variable for block 1 (odd outcomes)
   mylatent2 <- rnorm(N,E,sd) #this is the latent variable2 for 2nd block (even outcomes)
-  if(mymethod==3)
+  if(mymodel==3)
   {
-      mylatent2 <- rnorm(N,0,sd)  #for method 2 the 2nd block always has null effect
+      mylatent2 <- rnorm(N,0,sd)  #for model 2 the 2nd block always has null effect
   }
   #if we want case where only factor 1 has effect, then use 0 rather than E for mylatent2
    block1 <- seq(1,maxn,2)
@@ -71,23 +71,22 @@ makecorL2 <- function(N,outcomes,r,E,sd,mymethod){ #we generate raw data for max
 ```{r createp,echo=F}
 # Make data frame of p-values.
 #For each run of the simulation, a one-tailed t-test is used to compare groups I and C; we can use a one-tailed test as we assume the intervention group (I) will obtain a higher score than the control group (C).  This generates a huge data frame of p-values, one per run, covering all values of effect size, correlation and sample size. P-values are given for individual variables, and for the principal components. 
-#Here we use method L1 
-#Method L1: all outcomes load on the same latent factor
-#Method L2: outcomes divided by two latent factors but both show effect
-#Method L3: outcomes divided by two latent factors, only one shows effect.
+#Here we use model L1 
+#model L1: all outcomes load on the same latent factor
+#model L2: outcomes divided by two latent factors but both show effect
+#model L3: (This is model L2x in the paper) outcomes divided by two latent factors, only one shows effect.
   
-method <- "L1"
+model <- "L1"
 alpha <- .05
-nsim <- 100 #number of runs for each combination of mycorr, mynvar,myES and myN.
+nsim <- 50 #number of runs for each combination of mycorr, mynvar,myES and myN.
 #for final version, have v. large value - for testing try with smaller nsims
 mycorr <- c(.2,.4,.6,.8) #intercorrelations between variables to consider
-usecorr <- c(.2,.4,.6,.8)#
 nstep<-2 
 outcomes <- seq(2,12,nstep) #number of outcome variables to consider
 maxn <- max(outcomes) #we always create max number of variables, and then use subsets of this to examine smaller Ns
 myES <- c(0,.3,.5,.8) #effect sizes to consider
 myN <- c(20,50,80) #Ns per group to consider
-mypname <-paste0('p_1side_method',method,'_allN_allES_allcorr_maxn',maxn,'_nsim',nsim,'_nstep',nstep) #filename to save csv file with simulated p-values (saves time when many runs used)
+mypname <-paste0('p_1side_model',model,'_allN_allES_allcorr_maxn',maxn,'_nsim',nsim,'_nstep',nstep) #filename to save csv file with simulated p-values (saves time when many runs used)
 myfolder <-'data/'
   #set up dataframe for holding pvalues
   p.df <- data.frame(matrix(NA,nrow=nsim*length(mycorr)*length(myN)*length(myES),ncol=maxn+6+2*length(outcomes)))
@@ -101,7 +100,6 @@ myfolder <-'data/'
         for(n in myN){
           thisrow <- thisrow+1
           c<-mycorr[rval]
-          u <-usecorr[rval] #this is a hangover from when we tried to include c=0; c and u are the same here
           p.df$run[thisrow] <- s
           p.df$corr[thisrow] <- c
           p.df$ES[thisrow]<-e
@@ -110,25 +108,25 @@ myfolder <-'data/'
 #makecorL and makecorL2 create a data frame for each run with scores for outcomes
 #Those in dataframe I have the effect size added to the latent variable
           
-if (method=='L1'){
+if (model=='L1'){
             C <- makecorL(n,outcomes,sqrt(c),0,1) #intercorrelations will be mycor^2
-            I <- makecorL(n,outcomes,sqrt(c),e/sqrt(u),1)  #group I is intervention group: has ES added to mylatent value. Note that to get correct E for the observed vars, need to use e/sqrt(u)
+            I <- makecorL(n,outcomes,sqrt(c),e/sqrt(c),1)  #group I is intervention group: has ES added to mylatent value. Note that to get correct E for the observed vars, need to use e/sqrt(u)
             
 }
-if(method=='L2'){
-  mymethod<-2
-  #note that the function now has a final 'mymethod' term that distinguishes L2 and L3
-            C <- makecorL2(n,outcomes,sqrt(c),0,1,mymethod) #intercorrelations will be mycor^2
-            I <- makecorL2(n,outcomes,sqrt(c),e/sqrt(u),1,mymethod) #group I is intervention group: has ES added to mylatent value
-            #for method L2, same as L1, except outcomes load on 2 factors corresponding to odd or even measures 
+if(model=='L2'){
+  mymodel<-2
+  #note that the function now has a final 'mymodel' term that distinguishes L2 and L3
+            C <- makecorL2(n,outcomes,sqrt(c),0,1,mymodel) #intercorrelations will be mycor^2
+            I <- makecorL2(n,outcomes,sqrt(c),e/sqrt(c),1,mymodel) #group I is intervention group: has ES added to mylatent value
+            #for model L2, same as L1, except outcomes load on 2 factors corresponding to odd or even measures 
         
 }    
-          if(method=='L3'){
-            mymethod <- 3
-  #note that the function now has a final 'mymethod' term that distinguishes L2 and L3
-            C <- makecorL2(n,outcomes,sqrt(c),0,1,mymethod) #intercorrelations will be mycor^2
-            I <- makecorL2(n,outcomes,sqrt(c),e/sqrt(u),1,mymethod) #group I is intervention group: has ES added to mylatent value
-            #for method L2, same as L1, except outcomes load on 2 factors corresponding to odd or even measures 
+          if(model=='L3'){ #in the write-up this is termed model L2x
+            mymodel <- 3
+  #note that the function now has a final 'mymodel' term that distinguishes L2 and L3
+            C <- makecorL2(n,outcomes,sqrt(c),0,1,mymodel) #intercorrelations will be mycor^2
+            I <- makecorL2(n,outcomes,sqrt(c),e/sqrt(c),1,mymodel) #group I is intervention group: has ES added to mylatent value
+            #for model L2, same as L1, except outcomes load on 2 factors corresponding to odd or even measures 
         
 }   
         #create principal components: this based on I and C vals combined
@@ -184,14 +182,17 @@ if(method=='L2'){
   # we now have p.df, which is a big dataframe with p-values from all the simulations, for max N variables at all corrs, effect sizes and sample sizes.
 ```
 
-
+NB To avoid inadvertently overwriting file when testing script, we manually rename the saved p.df before running the next chunk.
+Simplified name is just simulated_PMEff_L.csv', with model type (1, 2 or 3) after L
 
 
 ```{r countsigp}
-#identify the file for the specific method (1, 2 or 3)
-method <-3
+#identify the file for the specific model (1, 2 or 3)
+#This chunk is manually run for each model type; user specifies model at the top
+model <-3
 alpha<-.05
-nupname<-paste0('data/simulated_pMEff_L',method,'.csv')
+
+nupname<-paste0('data/simulated_pMEff_L',model,'.csv')
 pfile<-here(nupname)
 p.df<-read.csv(pfile)
 
@@ -207,7 +208,7 @@ nouts<-c(1,nouts) #include case of single variable
 powertab<-expand_grid(myES,myN,mycorr,nouts) #will hold % of cases with 0 to N significant outputs.
 #Power will be 1-%0
 
-powertab$meancorr<-NA  #mean correlation off diagonal - for method 1 should be close to corr
+powertab$meancorr<-NA  #mean correlation off diagonal - for model 1 should be close to corr
 powertab$Bonf.sigp<-NA #N runs signif with Bonferroni corrected p
 powertab$PCA.sigp<-NA # N runs signif with PCA
 powertab$MEff.sigp<-NA #N runs signif with MEff
@@ -281,9 +282,6 @@ powertab$MEff.sigp<-NA #N runs signif with MEff
 ```{r dopowerplot}  
 #for plotting need to reshape to long form
   
-
-
-
 #focus on nouts from 2 to 8 and ditch null effects
 newnouts<-c(1,2,4,6,8)
 powertab<-filter(powertab,nouts%in% newnouts,myES>0)
@@ -292,12 +290,12 @@ for (n in myN){
 power3 <- round(pwr.t.test(n=n,d=0.3,sig.level=.05,alternative="greater")$power,3)
 power5 <- round(pwr.t.test(n=n,d=0.5,sig.level=.05,alternative="greater")$power,3)
 power8 <- round(pwr.t.test(n=n,d=0.8,sig.level=.05,alternative="greater")$power,3)
-if(method==3){power3<- .5*(power3+.05)}
-if(method==3){power5<- .5*(power5+.05)}
-if(method==3){power8<- .5*(power8+.05)}
+if(model==3){power3<- .5*(power3+.05)}
+if(model==3){power5<- .5*(power5+.05)}
+if(model==3){power8<- .5*(power8+.05)}
 
   plotbit <- filter(powertab,myN==n)
-  #make long form with the 3 methods stacked above each other
+  #make long form with the 3 models stacked above each other
   plotbitlong1<-plotbit[,1:6]
   colnames(plotbitlong1)[6]<-'sigp'
   plotbitlong1$method<-'Bonferroni'
@@ -330,7 +328,7 @@ p<-p + facet_grid( ~ mycorr)
 
 
 
-plotname<-here(paste0('Figures/Method_',method,'_power_N_',n,'.jpg'))
+plotname<-here(paste0('Figures/model_',model,'_power_N_',n,'.jpg'))
 ggsave(plotname,width=8,height=4)
 
 }
