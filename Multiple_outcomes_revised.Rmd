@@ -2,38 +2,19 @@
 title: 'Using multiple outcomes in intervention studies:
   improving power while controlling type I errors'
 author: "D. V. M. Bishop"
-date: "13/11/2022"
+date: "17/11/2022"
 output:
   word_document: default
   html_document: default
   pdf_document: default
-bibliography: refs.bib
 editor_options: 
   chunk_output_type: console
 ---
 
 
 
-<!-- To do:  
-
-For figures: https://rmd4sci.njtierney.com/figures-tables-captions-.html
-
-Check the terminology - familywise error rate, adjusted alpha etc. Need to be consistent throughtout.  
-Make figures showing the correlation structures that are considered.  
-Read earlier Vickerstaff.  
-? Situation if only some variables have a real effect. 
-Do we need to now vary effect size by variables as well as correlation structure?
-Suppose we have 2 factors and one has big ES and one has none. If you use multiple outcomes and MEff, you might reduce chances of finding the effect?
-This is case where you are really going to need to replicate to see whether the pattern is chance or genuine?
-But first let's just do the power stuff with the simple case, and compare with PCA
--->
-
-
-
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-# Note to users: 
-# Simulated data for 10,000 runs per condition, as well as other .csv files used here can be downloaded from https://osf.io/5t4se/files/
 
 require(tidyverse)
 require(flextable)
@@ -69,19 +50,19 @@ numformat=function(mynum,ndecimals){
 
 ### Background   
 
-The CONSORT guidelines for clinical trials recommend use of a single primary outcome, to guard against the raised risk of false positive findings when multiple measures are considered. It is, however, possible to include a suite of multiple outcomes in an intervention study, while controlling the familywise error rate, if the correlation between outcomes is known. The MEff statistic is a relatively simple approach that is well-suited to this purpose, but is not well-known outside genetics. Where multiple outcomes are selected to index a common latent factor that is targeted by intervention, use of MEff can substantially increase power of an intervention study. 
+The CONSORT guidelines for clinical trials recommend use of a single primary outcome, to guard against the raised risk of false positive findings when multiple measures are considered. It is, however, possible to include a suite of multiple outcomes in an intervention study, while controlling the familywise error rate, if the correlation between outcomes is known. The MEff statistic is a relatively simple approach that is well-suited to this purpose, but is not well-known outside genetics. Selection of multiple outcomes to index a common latent factor that is targeted by intervention can substantially increase power of an intervention study. 
 
 ### Methods  
 
-Data were simulated for an experimental evaluation of an intervention, with a given sample size (N), effect size (E) and correlation matrix for a suite of outcomes (**R**). Using the variance of eigenvalues from the correlation matrix, we can compute MEff, the effective number of variables that the alpha level should be divided by to control the familywise error rate. Various scenarios are simulated to consider how MEff is affected by the pattern of pairwise correlations within a set of outcome measures. Simulated data is used to compare the power of this approach compared to Bonferroni correction, or a principal component analysis. 
+Data were simulated for an experimental evaluation of an intervention, with a given sample size (N), effect size (E) and correlation matrix for a suite of outcomes (**R**). Using the variance of eigenvalues from the correlation matrix, we can compute MEff, the effective number of variables that the alpha level should be divided by to control the familywise error rate. Various scenarios are simulated to consider how MEff is affected by the pattern of pairwise correlations within a set of outcome measures. Simulated data is used to compare the power of this approach compared to Bonferroni correction, or a principal component analysis (PCA). 
 
 ### Results  
 
-In certain situations, notably when the sample size is around 50-80 per group and there is a moderate correlation between outcome measures (.4-.5) and medium effect size (.3-.5), statistical power can be increased by inclusion of multiple outcome measures, while using MEff to maintain the familywise error rate at .05. 
+In certain situations, notably when the sample size is around 50-80 per group and there is a moderate correlation between outcome measures (.4-.5) and medium effect size (.3-.5), statistical power can be increased by inclusion of multiple outcome measures. Differences in power between MEff and Bonferroni correction are small if intercorrelations between outcomes are low, but the advantage of MEff is more evident as intercorrelations increase. PCA is superior in cases where the impact on outcomes is fairly uniform, but MEff is more useful when intervention effects are inconsistent across measures. 
 
 ### Conclusions   
 
-Where it is feasible to have a suite of moderately correlated outcome measures, then Meff can provide a more efficient approach than reliance on a single primary outcome measure in an intervention study. In effect, it builds in an internal replication to the study. With appropriate control of the alpha level using Meff, the researcher can identify a true intervention effect if any one of a set of outcome measures gives a statistically significant result. This approach can also be used to evaluate published intervention studies, if the correlation between outcome measures can be estimated. 
+Where it is feasible to have a suite of moderately correlated outcome measures, this can lead to enhanced statistical power over a single measure. In effect, this approach builds in an internal replication to the study. The optimal method for correcting for multiple testing depends on the underlying data structure, with PCA being superior if outcomes are all indicators of a common underlying factor. Both Bonferroni correction and MEff can be applied post hoc to evaluate published intervention studies, with MEff being superior when outcomes are moderately or highly correctated. A lookup table is provided to give alpha levels for use with Meff for cases where the correlation between outcome measures can be estimated. 
 
 ## Keywords  
 intervention, methodology, statistics, correlated outcomes, power, familywise error rate, multiple comparisons
@@ -89,10 +70,10 @@ intervention, methodology, statistics, correlated outcomes, power, familywise er
 
 ## The case against multiple outcomes
 
-The CONSORT guidelines for clinical trials [@moher2010] are very clear on the importance of having a single primary outcome:  
+The CONSORT guidelines for clinical trials (Moher et al., 2010) are very clear on the importance of having a single primary outcome:  
 _All RCTs assess response variables, or outcomes (end points), for which the groups are compared. Most trials have several outcomes, some of which are of more interest than others. The primary outcome measure is the pre-specified outcome considered to be of greatest importance to relevant stakeholders (such as patients, policy makers, clinicians, funders) and is usually the one used in the sample size calculation. Some trials may have more than one primary outcome. Having several primary outcomes, however, incurs the problems of interpretation associated with multiplicity of analyses and is not recommended._  
 
-This advice often creates a dilemma for the researcher: in many situations there are multiple measures that could plausibly be used to index the outcome. If we have several outcomes and we would be interested in improvement on any measure, then we need to consider the __familywise error rate__, i.e. the probability of at least one false positive in the whole set of outcomes. For instance, if want to set the false positive rate,  alpha to .05,  and we have six independent outcomes, none of which is influenced by the intervention, the probability that __none__ of the tests of outcome effects is significant will be .95^6, which is .735. Thus the probability that __at least one__ outcome is significant, the familywise error rate, is 1-.735, which is .265. In other words, in about one quarter of studies, we would see a false positive when there is no true effect.
+This advice often creates a dilemma for the researcher: in many situations there are multiple measures that could plausibly be used to index the outcome (Vickerstaff, Ambler, King, Nazareth, & Omar, 2015). If we have several outcomes and we would be interested in improvement on any measure, then we need to consider the __familywise error rate__, i.e. the probability of at least one false positive in the whole set of outcomes. For instance, if want to set the false positive rate,  alpha to .05,  and we have six independent outcomes, none of which is influenced by the intervention, the probability that __none__ of the tests of outcome effects is significant will be .95^6, which is .735. Thus the probability that __at least one__ outcome is significant, the familywise error rate, is 1-.735, which is .265. In other words, in about one quarter of studies, we would see a false positive when there is no true effect. The larger the number of outcomes, the higher the false positive rate. 
 
 A common solution is to apply a Bonferroni correction by dividing the alpha level by the number of outcome measures - this example .05/6 = .008. This way the familywise error rate is kept at .05. But this is over-conservative if, as is usually the case, the various outcomes are intercorrelated.  
 
@@ -100,7 +81,7 @@ To illustrate the problem with a realistic example, suppose we are reading a rep
 
 Alternative methods have been developed to address this issue. One approach is to adopt some process of data reduction, such as extracting a principal component from the measures that can be used as the primary outcome.  Alternatively, a permutation test can be used to derive exact probability of an observed pattern of results. Neither approach, however, is helpful if the researcher is evaluating a published paper where an appropriate correction has not been made. These could be cases where no correction is made for multiple testing, risking a high rate of false positives, or where Bonferroni correction has been applied despite using correlated outcomes, which will be overconservative in rejecting the null hypothesis. The goal of the current article is to provide some guidance for interpretation of published papers where the raw data are not available for recomputation of statistics. 
 
-In a review of an earlier version of this paper, Sainani (2021) pointed out that the MEff statistic, originally developed in the field of genetics by Chevrud (2001) and Nyholt (2004), provided a simple way of handling this situation. With this method, one computes eigenvalues from the correlation matrix of outcomes, which reflect the degree of intercorrelation between them. The mathematical definition of an eigenvalue can be daunting, but an intuitive sense of how it relates to correlations can be obtained by considering the cases shown in Table 1.  This shows how eigenvalues vary with the correlation structure of a matrix, using an example of six outcome measures. The number of eigenvalues, and the sum of the eigenvalues, is identical to the number of measures. Let us start by assuming a matrix in which all off-diagonal values are equal to r.  It can be seen that when the correlation is zero, each eigenvalue is equal to one, and the variance of the eigenvalues is zero.  When the correlation is one, the first eigenvalue is equal to six, all other eigenvalues are zero, and the variance of the eigenvalues is six. As correlations increase from .2 to .8, the size of the first eigenvalue increases, and that of the other eigenvalues decreases.  
+In a review of an earlier version of this paper, Sainani (2021) pointed out that the MEff statistic, originally developed in the field of genetics by Cheverud (2001) and Nyholt (2004), provided a simple way of handling this situation. With this method, one computes eigenvalues from the correlation matrix of outcomes, which reflect the degree of intercorrelation between them. The mathematical definition of an eigenvalue can be daunting, but an intuitive sense of how it relates to correlations can be obtained by considering the cases shown in Table 1.  This shows how eigenvalues vary with the correlation structure of a matrix, using an example of six outcome measures. The number of eigenvalues, and the sum of the eigenvalues, is identical to the number of measures. Let us start by assuming a matrix in which all off-diagonal values are equal to r.  It can be seen that when the correlation is zero, each eigenvalue is equal to one, and the variance of the eigenvalues is zero.  When the correlation is one, the first eigenvalue is equal to six, all other eigenvalues are zero, and the variance of the eigenvalues is six. As correlations increase from .2 to .8, the size of the first eigenvalue increases, and that of the other eigenvalues decreases.  
 
 
 ```{r makemat,include=F}
@@ -114,20 +95,22 @@ return(evs)
 ```
 
 ```{r makemat2,include=F}
-#have correls split into two blocks: not currently used
-demoeigens2<-function(nvar,cor){
-m<-matrix(rep(cor,nvar*nvar),nrow=nvar)
+#have correls split into two blocks: used in later section
+demoeigens2<-function(o,cor){
+m<-matrix(rep(cor,o*o),nrow=o)
 diag(m)<-1
 startc1<-1
-endc1<-(nvar/2)
-startc2<-(nvar/2)+1
-endc2<-nvar
+endc1<-(o/2)
+startc2<-(o/2)+1
+endc2<-o
 m[startc1:endc1,startc2:endc2]<-0
 m[startc2:endc2,startc1:endc1]<-0
 evs = eigen(m)$values
-meancor<-mean(m[upper.tri(m)])
+MEff<-1+(o-1)*(1-Var(evs)/o)
+AlphaMEff<-round(.05/MEff,3)
 
-return(list(evs,meancor))
+meancor<-mean(m[upper.tri(m)])
+return(list(AlphaMEff,meancor))
 }
 ```
 
@@ -155,32 +138,13 @@ ft1<-flextable(thistab)
 ft1<- fit_to_width(ft1, max_width =8 )
 ft1<-set_caption(ft1,'Eigenvalues, MEff and AlphaMEff with 6 outcome variables')
 
-  #we also add to the table the case where there are 2 separate factors, but this is not included in Table 1
-for(cor in mycor[2:length(mycor)]){
-  thisrow<-thisrow+1
-  evs<-demoeigens2(nvar,cor) #this time we have a list with evs and the computed corr
-  evstab[thisrow,2:(1+nvar)]<-round(evs[[1]],2)
-  evstab$Var[thisrow]<-var(evs[[1]])
-  evstab$Mean_corr[thisrow]<-evs[[2]]
 
-}
-
-
-
-  evstab$MEff<-1+(nvar-1)*(1-evstab$Var/nvar)
-  evstab$AlphaMEff<-round(.05/evstab$MEff,3)
-
-  #move the Meancorr into 2nd column
-  nc<-ncol(evstab)
-  evstab<-evstab[,c(1,nc,2:(nc-1))]
-  
-  write.csv(evstab,'EVStab.csv',row.names=F)
 
   
 ```
 
 `r ft1`  
-In Table 1, r is the intercorrelation between the six outcomes, Eigen1 - Eigen6 are the eigenvalues, and Var is the variance of the six Eigenvalues, which is used to compute MEff (the effective number of comparisons) from the formula:  
+In Table 1, _r_ is the intercorrelation between the six outcomes, Eigen1 - Eigen6, are the eigenvalues, and Var is the variance of the six Eigenvalues, which is used to compute MEff (the effective number of comparisons) from the formula:  
    MEff = 1 + (N-1)*(1-(Var(Eigen)/N)  
 where N is the number of outcome measures, and Eigen is the set of N eigenvalues. 
 
@@ -190,12 +154,12 @@ Derringer (2018) provided a useful tutorial on MEff, noting that it is not well-
 
 These resources will be sufficient for many readers interested in using MEff, but readers may find it useful to have a look-up table for the case when they are evaluating existing studies.  The goal of this paper is two-fold:  
 
-A. To consider how inclusion of multiple outcome measures affects statistical power, relative to the case of a single outcome, when appropriate correction of the familywise error rate is made using MEff. Results from MEff are compared with use of principal components analysis (PCA) and Bonferroni correction. 
+A. To consider how inclusion of multiple outcome measures affects statistical power, relative to the case of a single outcome, when appropriate correction of the familywise error rate is made using MEff. Results from MEff are compared with use of Bonferroni correction and analysis of the first component derived from Principal Components Analysis (PCA).   
 B. To provide a look-up table to help evaluate studies with multiple outcome measures, without requiring the reader to perform complex statistical analyses. 
 
 These goals are achieved in three sections below:
 
-1. Power to detect a true effect using MEff is calculated from simulated data for a range of values of sample size (N), effect size (E) and intercorrelation between outcomes (**R**)
+1. Power to detect a true effect using MEff is calculated from simulated data for a range of values of sample size (N), effect size (E) and the matrix of intercorrelation between outcomes (**R**)
 2. A lookup table is provided that gives values of MEff, and associated adjusted alpha-levels for different set sizes of outcome measures, with mean pairwise correlation varying from 0 to 1 in steps of .1.
 3. Use of the lookup table is shown for real-world example of application of MEff using a published  dataset. 
 
@@ -210,7 +174,7 @@ This is unfortunate because, as argued by Lakens (2016), provided one has a dire
 
 
 ## Methods  
-Correlated variables were simulated using in the R programming language [@rcoreteam2020]. The script to generate and analyse simulated data is available on !!!!!.  For each model specified below, 1000 simulations were run. Note that to keep analysis simple, a single value was simulated for each case, rather than attempting to model change.  Data for the two groups were generated by the same process, except that an effect size, E, was added to scores of the intervention group, I, but not to the control group, C. Scores of the two groups were compared using a one-tailed t-test for each run.
+Correlated variables were simulated using in the R programming language (R Core Team, 2020). The script to generate and analyse simulated data is available on https://osf.io/hsaky/.  For each model specified below, 2000 simulations were run. Note that to keep analysis simple, a single value was simulated for each case, rather than attempting to model pre- vs post-intervention change.  Data for the two groups were generated by the same process, except that a given effect size was added to scores of the intervention group, I, but not to the control group, C. Scores of the two groups were compared using a one-tailed t-test for each run.
 
 Power was computed for different levels of effect size (E),  correlation between outcomes (**R**) and sample size per group (N) for the following methods:  
 
@@ -226,15 +190,15 @@ In the simulation, outcomes were modelled as indicators of one or more underlyin
 $$
 r * L + \sqrt{1-r^2} * E 
 $$
-where r is the correlation between latent variable (L) and each outcome, and L is a vector of random normal deviates that is the same for each outcome variable, while E (error) is a vector of random normal deviates that differs for each outcome variable. Note that when outcome variables are generated this way, the mean intercorrelation between them will be r^2^.  Thus if we want a set of outcome variables with mean intercorrelation of .4, we need to specify r in the formula above as sqrt(r) = .632. Furthermore, the effect size for the simulated variables will be lower than for the latent variable: to achieve an effect size, E, for the outcome variables, it is necessary to specify the effect size for the latent variable, E~l~, as E/sqrt(r). 
+where _r_ is the correlation between latent variable (L) and each outcome, and L is a vector of random normal deviates that is the same for each outcome variable, while E (error) is a vector of random normal deviates that differs for each outcome variable. Note that when outcome variables are generated this way, the mean intercorrelation between them will be _r_^2^.  Thus if we want a set of outcome variables with mean intercorrelation of .4, we need to specify r in the formula above as sqrt(_r_) = .632. Furthermore, the effect size for the simulated variables will be lower than for the latent variable: to achieve an effect size, E, for the outcome variables, it is necessary to specify the effect size for the latent variable, E~l~, as E/sqrt(_r_). 
 
 Note that the case where r = 0 is not computable with this method - i.e. it is not possible to have a set of outcomes that are indicators of the same latent factor but which are uncorrelated. The lowest value of r that was included was r = .2. 
 
-Ths initial simulation,designated as Model L1, treated all outcome measures as equivalent. In practice, of course, we will observe different effect sizes for different outcomes, but in these models, this is purely down to the play of chance: all outcomes are indicators of the same underlying factor, as shown in the heatmap in Figure 1A.  
+Ths initial simulation, designated as Model L1, treated all outcome measures as equivalent. In practice, of course, we will observe different effect sizes for different outcomes, but in Model L1, this is purely down to the play of chance: all outcomes are indicators of the same underlying factor, as shown in the heatmap in Figure 1, Model L1.    
 
-In two additional models, rather than being indicators of the same uniform latent variable, the outcomes correspond to different latent constructs. This would correspond to the kind of study described by Vickerstaff et al (2021), where an intervention for obesity included outcomes relating to  weight and blood glucose levels.  Following suggestions by Sainani (2021), a set of simulations was generated to consider relative power of different methods when there are two underlying latent factors that generate the outcomes. In Model 2 (Figure 1), there are two independent latent factors, both affected by intervention. In Model 3 (Figure 1), the intervention only influences the first latent factor. The computational approach was the same as for model 1, but with two latent variables, each used to generate a block of variables. The two latent factors are uncorrelated.
+In two additional models, rather than being indicators of the same uniform latent variable, the outcomes correspond to different latent factors. This would correspond to the kind of study described by Vickerstaff et al (2021), where an intervention for obesity included outcomes relating to  weight and blood glucose levels.  Following suggestions by Sainani (2021), a set of simulations was generated to consider relative power of different methods when there are two underlying latent factors that generate the outcomes. In Model L2, there are two independent latent factors, both affected by intervention. In Model L2x, the intervention only influences the first latent factor. The computational approach was the same as for Model L1, but with two latent factors, each used to generate a block of variables. The two latent factors are uncorrelated.
 
-![Figure 1. Models for data generation. Heatmap where depth of colour corresponds to strength of association. A diagonal line through a latent factor indicates it is not related to intervention] ('Figures/ppt heatmap try.png')  
+(Figure 1 about here)  
 
 
 
@@ -242,36 +206,34 @@ In two additional models, rather than being indicators of the same uniform laten
 
 
 
-## 1. Power calculations.
+### 1. Power calculations.
  
 <!--Simulated data is created using Data_Simulation_L.Rmd.  
 This is based on the original MinNVar approach but allows for cases where outcomes come from different blocks
 The filename is saved as "simulated_pMEff_L1.csv" for method 1
-The script 'Data_simulation_goodL.Rmd' generates the simulated data, the summary values for power, and the figures. Figures are in the Figures folder.
+
+The script 'Data_simulation_goodL.Rmd' generates the simulated data, the summary values for power, and the figures. Figures are in the Figures folder.  Simulated data is here: https://osf.io/ardup/.
+
 -->
 
-Sample plots comparing power for Bonferroni correction, MEff and PCA are shown for sample size of 50 per group in Figures 2 to 4.  Plots for smaller (N = 20) and larger (N =  80)  sample sizes are available online, and show the same basic pattern.
+Sample plots comparing power for Bonferroni correction, MEff and PCA are shown for sample size of 50 per group in Figures 2 to 4.  Plots for smaller (N = 20) and larger (N =  80)  sample sizes are available online (https://osf.io/k6xyc/), and show the same basic pattern.
 
-Figure 2 shows the simplest situation when there are between 2 and 8 outcome measures, all of which are derived from the same latent variable (Method 1). Different levels of intercorrelation between the outcomes (ranging from .2 to .8 in steps of .2) are shown in columns.  
+Figure 2 shows the simplest situation when there are between 2 and 8 outcome measures, all of which are derived from the same latent variable (Model L1). Different levels of intercorrelation between the outcomes (ranging from .2 to .8 in steps of .2) are shown in columns.  
 
-![Figure 2. Method 1, 50 per group: Power in relation to number of outcome measures (N outcomes), intercorrelation between outcomes (column headers), type of Correction, and Effect size. The square, circle and triangle symbols represent the power for a single outcome measure with effect size .3, .5 and .8 respectively.] ('Figures/Method_1_power_N_50.jpg')
+(Figure 2 about here)  
 
-Several points  emerge from inspection of this figure;  first, when intercorrelation between measures is low to medium (.2 to .4), power increases as the number of outcome measures increases. Furthermore, the power is greater when PCA is used than when MEff or Bonferroni correction is applied.  MEff is generally somewhat better-powered than Bonferroni, and Bonferroni has lower power than a single outcome measure when there is a large number of highly intercorrelated outcome measures.  
+Several points  emerge from inspection of this figure;  first, when intercorrelation between measures is low to medium (.2 to .6), power increases as the number of outcome measures increases. Furthermore, the power is greater when PCA is used than when MEff or Bonferroni correction is applied.  MEff is generally somewhat better-powered than Bonferroni, and Bonferroni has lower power than a single outcome measure when there is a large number of highly intercorrelated outcome measures (r = .8).  
 
-In practice, it may be the case that outcome measures are not all reflective of a common latent factor.  Figure 3 shows results from Method 2, where outcome measures form two clusters, each associated with a different latent factor (see Figure 1). Here both latent factors are associated with improved outcomes in the intervention group. 
+In practice, it may be the case that outcome measures are not all reflective of a common latent factor.  Figure 3 shows results from Model L2, where outcome measures form two clusters, each associated with a different latent factor (see Figure 1). Here both latent factors are associated with improved outcomes in the intervention group. 
 
-![Figure 3. Method 2: 50 per group. Power in relation to number of outcome measures (N outcomes), intercorrelation between outcomes (column headers), type of Correction, and Effect size. The square, circle and triangle symbols represent the power for a single outcome measure with effect size .3, .5 and .8 respectively.] ('Figures/Method_2_power_N_50.jpg')
+(Figure 3 about here)
 
 
-```{r fig3, fig.align = 'center', fig.cap = "Figure 3. Method 2: 50 per group. Power in relation to number of outcome measures (N outcomes), intercorrelation between outcomes (column headers), type of Correction, and Effect size. The square, circle and triangle symbols represent the power for a single outcome measure with effect size .3, .5 and .8 respectively."}
-knitr::include_graphics(here::here('figures','Method_2_power_N_50.jpg'))
-```
+Once again, power increases with number of outcomes when there are low to modest intercorrelations between outcomes. For this method, PCA no longer has such a clear advantage. This makes sense, given that PCA will not derive a single main factor, when the underlying data structure contains two independent factors. 
 
-Once again, power increases with number of outcomes when there are low to modest intercorrelations between outcomes. For this method, PCA no longer has such a clear advantage. This makes sense, given that PCA will attempt to derive a single factor, when the underlying structure contains two independent factors.  
+(Figure 4 about here)  
 
-![Figure 4. Method 3: 50 per group. Power in relation to number of outcome measures (N outcomes), intercorrelation between outcomes (column headers), type of Correction, and Effect size. The square, circle and triangle symbols represent the power for a single outcome measure with effect size .3, .5 and .8 respectively.] ('Figures/Method_3_power_N_50.jpg') 
-
-Figure 4 shows equivalent results for Method 3, where we have a mixture of two types of outcome, one of which is influenced by intervention, and the other is not. This complicates calculation of power for a single variable, since, power will depend on whether we select one of the outcomes that is influenced by intervention or not. The symbols in Figure 4 show average power, assuming we could select either type of outcome with equal frequency.   We see that in this situation, MEff is clearly superior to PCA.  
+Figure 4 shows equivalent results for Model L2x, where we have a mixture of two types of outcome, one of which is influenced by intervention, and the other is not. This complicates calculation of power for a single variable, since, power will depend on whether we select one of the outcomes that is influenced by intervention or not. The symbols in Figure 4 show average power, assuming we might select either type of outcome with equal frequency.   We see that in this situation, MEff is clearly superior to PCA except when we have a large number of outcomes, a small effect size and weak intercorrelation between outcomes.  
 
 
 ## 2. Deriving a lookup table. 
@@ -340,54 +302,162 @@ MEfftab1<-myout[[1]]
 alphatab1<-myout[[2]]
 ft2<-flextable(alphatab1)
 ft2<- fit_to_width(ft2, max_width =8 )
-ft2<-set_caption(ft2,'AlphaMEff for different correlation values with 12 outcome variables')
+ft2<-set_caption(ft2,'AlphaMEff for different correlation values (corr) with 2-12 outcome variables (N2 to N12), based on Model L1.')
 
 ```
 
 `r ft2`  
 
-Table 2 shows corrected alpha values based on MEff, varying according to the correlation between outcome measures, and the number of outcome measures in the study. Of course, the problem for the researcher is to estimate the intercorrelation between outcome measures if this is not known. 
+Table 2 shows corrected alpha values based on MEff, varying according to the correlation between outcome measures, and the number of outcome measures in the study. In practice, the problem for the researcher is to estimate the intercorrelation between outcome measures if this is not known. 
 
-It is unrealistic to assume that there will be a uniform intercorrelation between outcome measures in the population.  Nevertheless, further simulations showed that values for MEff are reasonably consistent for different correlation matrices that all have the same average off-diagonal correlation. Consider, for instance, the correlations between 4 variables shown in Figure 1 for Method 2.  Within the blocks V1-V2 and V3-V4 the intercorrelation is __r__, but between blocks the intercorrelation is zero. There are six off-diagonal correlations and the mean off-diagonal is (2 * __r__) / 6. For instance, if __r__ equals .5, then the mean off-diagonal value is .167. We can compare MEff for Method 2 with the MEff obtained in Method 1, if all off-diagonal correlations are .167 - this exercise shows that they are similar, as shown in Table 3. 
+Model L1, used to generate these data, assumes there will be a uniform intercorrelation between outcome measures in the population. This is likely to be unrealistic.  Nevertheless, further simulations showed that values for MEff are reasonably consistent for different correlation matrices that all have the same average off-diagonal correlation. Consider, for instance, the correlations between 4 variables shown in Figure 1 for Model L2.  Within the blocks V1-V2 and V3-V4 the intercorrelation is __r__, but between blocks the intercorrelation is zero. There are six off-diagonal correlations and the mean off-diagonal is (2 * __r__) / 6. For instance, if __r__ equals .5, then the mean off-diagonal value is .167. To see how the MEff correction is affected by correlation structure, we can compare MEff for Model L2 with the MEff obtained in Model L1 with the same off-diagonal correlation. This exercise shows that they are similar, as shown in Table 3. 
 
-In other words, if estimating MEff from existing data, it is reasonable to base the estimate on the __average__ off-diagonal correlation, regardless of the variation in correlations across the outcomes. 
+```{r nonuniformr,include=F}
+  # Here we consider the case where there are 2 separate factors
+  # First we check the mean off-diagonal r
+
+mycor<-seq(.2,.8,.1)
+nvar <- seq(4,8,2)
+halftab<-data.frame(matrix(NA,ncol=(3+length(nvar)),nrow=(2*length(mycor))))
+colnames(halftab)<-c('Start r','Model','Mean offdiag r',paste0('Alpha.MEff.',nvar))
+
+thisrow<-(-1)
+
+for(cor in mycor){
+  thisrow<-thisrow+2
+  halftab[thisrow,1]<-cor
+  halftab[thisrow,2]<-'L2'
+   halftab[(thisrow+1),2]<-'L1'
+ 
+  thiscol<-3
+  for (o in nvar){
+    thiscol<-thiscol+1
 
 
-## Application to a real example
+  getalpha<-demoeigens2(o,cor) #this time we have a list with evs and the computed corr
+  halftab[thisrow,3]<-round(getalpha[[2]],3) #actual r on off diagonal model L2
+  halftab[thisrow,thiscol]<-getalpha[[1]]
+  
+  #Now add model L1 using same average r
+  mod1evs<- demoeigens(o,getalpha[[2]]) #model L1 but with averaged off diag from model L2
+  #returns the eigenvectors - need to compute AlphaMEff
+  MEff<-1+(o-1)*(1-Var(mod1evs)/o)
+  AlphaMEff<-round(.05/MEff,3)
+ 
+  halftab[(thisrow+1),thiscol]<-AlphaMEff
+  
+  }
+  halftab[seq(2,nrow(halftab),2),3]<-halftab[seq(1,nrow(halftab),2),3] #duplicate offdiag values for Model L1
+}
 
+
+
+  
+  write.csv(evstab,'splitr.tab.csv',row.names=F)
+
+ft3<-flextable(halftab)
+ft3<- fit_to_width(ft3, max_width =8 )
+ft3<-set_caption(ft3,'AlphaMEff values for Model L2 (odd rows) and Model L1 (even rows), with same mean off diagonal r. For Model L2, "Start r" is the value for nonzero off-diagonal correlations')
+```
+
+`r ft3`  
+
+In other words, if estimating MEff from existing data, it is reasonable to base the estimate on the __average__ off-diagonal correlation, regardless of whether the pattern of intercorrelations is uniform. 
+
+
+## Application to a real example  
+Use of the lookup Table 2 can be illustrated with data from a study by Burgoyne et al. (2012), which evaluated a reading and language intervention for children with Down syndrome.  A large number of assessments was carried out over various time points, but our focus here is on the five outcome measures that had been designated as "primary", as they were "proximal to the content of the intervention", i.e., they measured skills and knowledge that had been explicitly taught. The p-values reported by the authors (see Table 4) come from  analyses of covariance comparing differences between intervention and control groups after 20 weeks of intervention, controlling for baseline performance, age and gender. 
+
+```{r burgoyne, include=F}
+bdat<- read.csv(here("Data","burgoyne_data.csv"))
+colnames(bdat)[3]<-'Bonferroni: alpha = .01'
+colnames(bdat)[4]<-'MEff: alpha = .014'
+ft4<-flextable(bdat)
+ft4<- fit_to_width(ft4, max_width = 11 )
+ft4<-set_caption(ft4,'P-values from Burgoyne et al, 2012. Bonferroni and MEff alpha for 6 variables with mean correlation of .6')
+```
+`r ft4`  
+
+Whereas the Bonferroni-corrected alpha can be computed simply from knowledge of the number of outcome measures, the MEff-corrected alpha requires knowledge of the mean correlation between the outcome measures. In this case, this could be computed, (_r_ = .581), as the data were available in a repository (Burgoyne et al., 2016). From Table 2, we see that with five outcome measures and r = _.6_, the adjusted alpha is .014. In this example, three outcomes have p-values below the critical alpha when MEff is used. If the more stringent Bonferroni correction is applied, only two outcomes achieve significance. 
 
 ## Discussion
 
-Some interventions are expected to affect a range of related processes.  In such cases, the need to specify a single primary outcome tends to create difficulties, because it is often unclear which of a suite of outcomes is likely to show an effect. Note that the MEff approach does not give the researcher free rein to engage in p-hacking: the larger the suite of measures included in the study, the lower the adjusted alpha will be. It does, however, remove the need to put all one's eggs in one basket by pre-specifying one measure as the primary outcome. 
+Some interventions are expected to affect a range of related processes.  In such cases, the need to specify a single primary outcome tends to create difficulties, because it is often unclear which of a suite of outcomes is likely to show an effect. Note that the MEff approach does not give the researcher free rein to engage in p-hacking: the larger the suite of measures included in the study, the lower the adjusted alpha will be. It does, however, remove the need to pre-specify one measure as the primary outcome, when there is genuine uncertainty about which measure might be most sensitive to intervention.
 
-A second advantage is that in effect, by including multiple outcome measures, one can improve the efficiency of a study, in terms of the trade-off between power and familywise errors. A set of outcome measures may be regarded as imperfect proxy indicators of an underlying latent construct, so we are in effect building in a degree of within-study replication if we require that more than one measure shows the same effect in the same direction before we reject the null hypothesis. 
+A second advantage is that in effect, by including multiple outcome measures, one can improve the efficiency of a study, in terms of the trade-off between power and familywise errors. A set of outcome measures may be regarded as imperfect proxy indicators of an underlying latent construct, so we are in effect building in a degree of within-study replication by including more than one outcome measure. 
 
-A possible disadvantage of using the MEff over principal components is that this approach is likely to tempt researchers to interpret specific outcomes that fall below the .05 threshold as meaningful. They may be, of course, but this simulation demonstrates that when we create a suite of outcomes that differ only by chance, it is common for only a subset of them to reach the significance criterion. Any recommendation to use MEff should be accompanied by a warning that a suite of outcomes should be selected as representative of the underlying construct the intervention is designed to influence, in effect serving as replicate measures, all of which should be equally promising as indicators of an intervention effect. If a subset of outcomes show an effect of intervention, this could be due to chance. It would be necessary to run a replication to have confidence in a particular pattern of results. 
+The simulations showed that PCA gives higher power than MEff in the case where all outcomes are indicators of a single underlying factor. PCA, however, needs to be computed from raw data and so is not feasible when re-evaluating published studies, whereas MEff is feasible so long as the average off-diagonal correlation between outcomes can be estimated. PCA is also less powerful when the outcomes tap into heterogeneous constructs and do not load on one major latent factor.
 
-It is also worth noting that results obtained with this approach depend crucially on assumptions embodied in the simulation that is used to derive predictions. Outcome measures simulated here are normally distributed, and uniform in their covariance structure.  It would be of interest to evaluate MEff in datasets with different variable types, such as those used by Vickerstaff et al (2021) that included binary as well as continuous data, as well as modeling the impact of missing data. 
+A possible disadvantage of using MEff or Bonferroni correction over PCA is that such approaches are likely to tempt researchers to interpret specific outcomes that fall below the revised alpha threshold as meaningful. They may be, of course, but when we create a suite of outcomes that differ only by chance, it is common for only a subset of them to reach the significance criterion. Any recommendation to use MEff should be accompanied by a warning that if a subset of outcomes shows an effect of intervention, this could be due to chance. It would be necessary to run a replication to have confidence in a particular pattern of results. 
 
+It is also worth noting that results obtained with this approach will depend on assumptions embodied in the simulation that is used to derive predictions. Outcome measures simulated here are normally distributed, and uniform in their covariance structure.  It would be of interest to evaluate MEff in datasets with different variable types, such as those used by Vickerstaff et al (2021) that included binary as well as continuous data, as well as modeling the impact of missing data. 
 
-Compared to most other approaches, MEff is relatively simple. It could potentially be used to reevaluate published studies that report multiple outcomes but may not have been analysed optimally, provided we have some information on the average correlation between outcome measures. 
-
-In sum, the veto on use of multiple outcomes in intervention studies does not lead to optimal study design. Inclusion of several related outcomes can increase statistical power, without increasing the false positive rate, provided appropriate correction is made for the multiple testing. 
+In sum, a recommendation against using multiple outcomes in intervention studies does not lead to optimal study design. Inclusion of several related outcomes can increase statistical power, without increasing the false positive rate, provided appropriate correction is made for the multiple testing. Compared to most other approaches for correlated outcomes, MEff is relatively simple. It could potentially be used to reevaluate published studies that report multiple outcomes but may not have been analysed optimally, provided we have some information on the average correlation between outcome measures. 
 
 
 
 # Table titles  
+Table 1: Eigenvalues, MEff and AlphaMEff with 6 outcome variables
+
+Table 2: AlphaMEff for different correlation values (corr) with 2-12 outcome variables (N2 to N12), based on Model L1.  
+
+Table 3: AlphaMEff values for Model L2 (odd rows) and Model L1 (even rows), with same mean off diagonal _r_. For Model L2, "Start _r_" is the value for nonzero off-diagonal correlations.  
+
+Table 4: P-values from Burgoyne et al, 2012. Bonferroni and MEff alpha for 6 variables with mean correlation of .6.  
 
 
 # Figure titles  
+
+Figure 1. Models for data generation. Heatmap depicts correlations between observed variables V1 to V4 and Latent factors, where colour denotes association. A diagonal line through a latent factor indicates it is not related to intervention ('Figures/ppt heatmap try.png')  
+
+Figure 2. Model L1, 50 per group: Power in relation to number of outcome measures (N outcomes), intercorrelation between outcomes (column headers), type of Correction, and Effect size. The square, circle and triangle symbols represent the power for a single outcome measure with effect size .3, .5 and .8 respectively. ('Figures/Method_1_power_N_50.jpg')  
+
+Figure 3. Method 2: 50 per group. Power in relation to number of outcome measures (N outcomes), intercorrelation between outcomes (column headers), type of Correction, and Effect size. The square, circle and triangle symbols represent the power for a single outcome measure with effect size .3, .5 and .8 respectively. ('Figures/Method_2_power_N_50.jpg')  
+
+Figure 4. Method 3: 50 per group. Power in relation to number of outcome measures (N outcomes), intercorrelation between outcomes (column headers), type of Correction, and Effect size. The square, circle and triangle symbols represent the power for a single outcome measure with effect size .3, .5 and .8 respectively. ('Figures/Method_3_power_N_50.jpg')  
+
 
 
 
 # Notes  
 
-The script is available on https://github.com/oscci/MinSigVar.
+Scripts in R are available on https://osf.io/hsaky/.
 
 # Competing interests
 No competing interests were disclosed.  
 
 # References  
+
+Bishop, D. V. M. (2021). Using multiple outcomes in intervention studies for improved trade-off between power and type I errors: The Adjust NVar approach [version 1; peer review: 2 not approved] F1000Research 2021, 10:991. https://doi.org/10.12688/f1000research.73520.1  
+
+Burgoyne, K., Duff, F. J., Clarke, P. J., Buckley, S., Snowling, M. J., & Hulme, C. (2012). Efficacy of a reading and language intervention for children with Down syndrome: A randomized controlled trial. Journal of Child Psychology and Psychiatry, and Allied Disciplines, 53(10), 1044–1053. https://doi.org/10.1111/j.1469-7610.2012.02557.x  
+
+Burgoyne, K., Duff, F. J., Clarke, P. J., Buckley, S., Snowling, M. J., & Hulme, C. (2016). Reading and language intervention for children with Down syndrome: Experimental data [data collection]. http://doi.org/10.5255/UKDA-SN-852291  
+
+Cheverud, J. M. (2001). A simple correction for multiple comparisons in interval mapping genome scans. Heredity, 87(1), Article 1. https://doi.org/10.1046/j.1365-2540.2001.00901.x  
+
+Derringer, J. (2018). A simple correction for non-independent tests. PsyArXiv. https://doi.org/10.31234/osf.io/f2tyw  
+
+Lakens, D. (2016, March 17). The 20% Statistician: One-sided tests: Efficient and Underused. The 20% Statistician. http://daniellakens.blogspot.com/2016/03/one-sided-tests-efficient-and-underused.html  
+
+Moher, D., Hopewell, S., Schulz, K. F., Montori, V., Gøtzsche, P. C., Devereaux, P. J., Elbourne, D., Egger, M., & Altman, D. G. (2010). CONSORT 2010 explanation and elaboration: Updated guidelines for reporting parallel group randomised trials. BMJ (Clinical Research Ed.), 340, c869. https://doi.org/10.1136/bmj.c869  
+
+Nyholt, D. R. (2004). A simple correction for multiple testing for single-nucleotide polymorphisms in linkage disequilibrium with each other. American Journal of Human Genetics, 74(4), 765–769.  
+
+R Core Team. (2020). R: A language and environment for statistical computing. R Foundation for Statistical Computing, Vienna, Austria. https://www.R-project.org/
+
+Sainani, K. (2021). Peer Review Report For: Using multiple outcomes in intervention studies for improved trade-off between power and type I errors: The Adjust NVar approach [version 1; peer review: 2 not approved]. F1000Research 2021, 10:991 (https://doi.org/10.5256/f1000research.77175.r96192).  
+
+Vickerstaff, V., Ambler, G., King, M., Nazareth, I., & Omar, R. Z. (2015). Are multiple primary outcomes analysed appropriately in randomised controlled trials? A review. Contemporary Clinical Trials, 45(Pt A), 8–12. https://doi.org/10.1016/j.cct.2015.07.016.  
+
+Vickerstaff, V., Ambler, G., & Omar, R. Z. (2021). A comparison of methods for analysing multiple outcome measures in randomised controlled trials using a simulation study. Biometrical Journal. Biometrische Zeitschrift, 63(3), 599–615. https://doi.org/10.1002/bimj.201900040  
+
+
+
+
+
+
+
 
 
 
