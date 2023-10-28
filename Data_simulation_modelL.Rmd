@@ -13,6 +13,9 @@ require(reshape2) #for heatmap
 
 
 ```{r makemodelL,echo=F}
+# Minor updates on 28 Oct 2023 to remove lines for effect size = .8 from figures
+# Version saved on OSF 17 Nov 2022
+# Only subsequent change is to make .tiff versions of figures and label fig columns as r:
 # # model L
 # This function generates a mylatent vector plus maxn variables for N subjects.
 # The mylatent vector is saved in the last column. This is not returned as it is only used to check that the correct correlation structure has been achieved.
@@ -278,13 +281,16 @@ powertab$MEff.sigp<-NA #N runs signif with MEff
 
 ```
   
-  
+Powertabs are quick to create, so no need to save, though I do have saved versions in data.
+
 ```{r dopowerplot}  
 #for plotting need to reshape to long form
   
 #focus on nouts from 2 to 8 and ditch null effects
 newnouts<-c(1,2,4,6,8)
 powertab<-filter(powertab,nouts%in% newnouts,myES>0)
+w<-which(colnames(powertab)=='mycorr')
+colnames(powertab)[w]<-'r' #change name for plot
 myN<-c(20,50,80)
 for (n in myN){
 power3 <- round(pwr.t.test(n=n,d=0.3,sig.level=.05,alternative="greater")$power,3)
@@ -313,22 +319,23 @@ if(model==3){power8<- .5*(power8+.05)}
   plotbitlong$Correction = as.factor(plotbitlong$method)
   plotbitlong$`Effect size` = as.factor(plotbitlong$myES)
   plotbitlong<-filter(plotbitlong,nouts>1)
+  #Added in response to rev 1 - remove effect size .8
+   plotbitlong<-filter(plotbitlong,myES<.8)
   p<-ggplot(plotbitlong,aes(x=nouts,y=sigp))+
     xlim(0,8)+
   geom_line(aes(color=Correction,linetype=`Effect size`))+
   geom_point(x=1,y=power3,shape=0)+
   geom_point(x=1,y=power5,shape=1)+
-  geom_point(x=1,y=power8,shape=2)+
+  #geom_point(x=1,y=power8,shape=2)+
   labs(x='N outcomes',y = 'Power')
   
   
 
-
-p<-p + facet_grid( ~ mycorr)
-
+p<-p + facet_grid( ~ r,labeller=label_both) #all label to mycorr
 
 
-plotname<-here(paste0('Figures/model_',model,'_power_N_',n,'.jpg'))
+
+plotname<-here(paste0('Figures/New_model_',model,'_power_N_',n,'.tiff'))
 ggsave(plotname,width=8,height=4)
 
 }
